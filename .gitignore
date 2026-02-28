@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.python-version
+.env
+.env.*
+ppt_env/
+venv/
+.venv/
+node_modules/
+dist/
+build/
+*.sqlite3
+backend/storage/outputs/
+backend/storage/sessions/
+client_secret_*.json
