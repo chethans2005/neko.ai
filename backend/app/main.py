@@ -22,6 +22,21 @@ from app.services.job_service import job_manager
 from db.database import init_db
 
 
+def get_cors_origins() -> list[str]:
+    default_origins = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+    ]
+    cors_origins = os.getenv("CORS_ORIGINS", "").strip()
+    if not cors_origins:
+        return default_origins
+
+    parsed = [origin.strip() for origin in cors_origins.split(",") if origin.strip()]
+    return parsed if parsed else default_origins
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler for startup/shutdown events."""
@@ -59,7 +74,7 @@ app = FastAPI(
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000", "http://127.0.0.1:5173"],
+    allow_origins=get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

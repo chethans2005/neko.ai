@@ -193,6 +193,33 @@ curl http://127.0.0.1:8000/api/ai/status
 - Verify keys in `backend/.env`
 - Check `/api/ai/status` response
 
+## Deploy Backend on Render
+
+### Option A: Blueprint (recommended)
+
+1. Push this repo to GitHub (already done).
+2. In Render, choose **New +** → **Blueprint**.
+3. Select this repository; Render will detect `render.yaml`.
+4. Set secret env vars in Render dashboard:
+	- `AUTH_SECRET`
+	- `GROQ_API_KEY` and/or `GEMINI_API_KEY`
+	- `GOOGLE_CLIENT_ID` (if using Google auth)
+5. Update `CORS_ORIGINS` to your deployed frontend URL(s), comma-separated.
+
+### Option B: Manual Web Service
+
+- Root Directory: `backend`
+- Environment: `Python`
+- Build Command: `pip install -r requirements.txt`
+- Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- Python Version env: `PYTHON_VERSION=3.11.9`
+
+### Notes
+
+- Current default DB is SQLite in `backend/storage/ai_ppt.db`.
+- Add a Render Persistent Disk mounted at `/opt/render/project/src/backend/storage` to keep SQLite data across deploys/restarts.
+- For production scale, prefer Postgres and set `DATABASE_URL`.
+
 ## Roadmap Suggestions
 
 - Split `backend/app/api/routes.py` into domain routers (`auth`, `history`, `generation`, `slides`)

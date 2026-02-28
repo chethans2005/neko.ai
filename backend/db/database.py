@@ -11,15 +11,15 @@ from sqlalchemy.pool import StaticPool
 
 
 # Database file path
-DATABASE_DIR = "storage"
-DATABASE_FILE = "ai_ppt.db"
+DATABASE_DIR = os.getenv("DATABASE_DIR", "storage")
+DATABASE_FILE = os.getenv("DATABASE_FILE", "ai_ppt.db")
 DATABASE_PATH = os.path.join(DATABASE_DIR, DATABASE_FILE)
 
-# Ensure storage directory exists
+# Ensure storage directory exists when using file-based SQLite
 os.makedirs(DATABASE_DIR, exist_ok=True)
 
-# SQLite async connection string
-DATABASE_URL = f"sqlite+aiosqlite:///{DATABASE_PATH}"
+# Database connection string (can be overridden in environment)
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite+aiosqlite:///{DATABASE_PATH}")
 
 
 class Base(DeclarativeBase):
