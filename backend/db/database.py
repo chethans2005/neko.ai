@@ -1,7 +1,7 @@
 """
-Database Configuration - Async SQLAlchemy with SQLite
+Database Configuration - Async SQLAlchemy
 
-Provides async database connection and session management.
+Supports SQLite by default and Postgres (e.g. Neon) via DATABASE_URL.
 """
 import os
 from sqlalchemy import text
@@ -20,6 +20,7 @@ os.makedirs(DATABASE_DIR, exist_ok=True)
 
 # Database connection string (can be overridden in environment)
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite+aiosqlite:///{DATABASE_PATH}")
+IS_SQLITE = DATABASE_URL.startswith("sqlite")
 
 
 class Base(DeclarativeBase):
@@ -28,13 +29,18 @@ class Base(DeclarativeBase):
 
 
 # Create async engine
-# For SQLite, we need special configuration to allow async access
-engine = create_async_engine(
-    DATABASE_URL,
-    echo=False,  # Set to True for SQL query logging
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,  # Required for SQLite with async
-)
+if IS_SQLITE:
+    engine = create_async_engine(
+        DATABASE_URL,
+        echo=False,  # Set to True for SQL query logging
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,  # Required for SQLite with async
+    )
+else:
+    engine = create_async_engine(
+        DATABASE_URL,
+        echo=False,  # Set to True for SQL query logging
+    )
 
 # Async session factory
 async_session_maker = async_sessionmaker(
@@ -53,13 +59,17 @@ async def init_db():
         from db import models  # noqa
         await conn.run_sync(Base.metadata.create_all)
 
-        # Lightweight schema migration for existing SQLite databases
-        result = await conn.execute(text("PRAGMA table_info(users)"))
-        user_columns = [row[1] for row in result.fetchall()]
-        if user_columns and "avatar_url" not in user_columns:
-            await conn.execute(text("ALTER TABLE users ADD COLUMN avatar_url TEXT"))
+        if IS_SQLITE:
+            # Lightweight schema migration for existing SQLite databases
+            result = await conn.execute(text("PRAGMA table_info(users)"))
+            user_columns = [row[1] for row in result.fetchall()]
+            if user_columns and "avatar_url" not in user_columns:
+                await conn.execute(text("ALTER TABLE users ADD COLUMN avatar_url TEXT"))
 
-    print(f"✓ Database initialized at {DATABASE_PATH}")
+    if IS_SQLITE:
+        print(f"✓ Database initialized at {DATABASE_PATH}")
+    else:
+        print("✓ Database initialized using external DATABASE_URL")
 
 
 async def get_db() -> AsyncSession:

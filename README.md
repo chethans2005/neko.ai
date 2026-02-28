@@ -201,6 +201,7 @@ curl http://127.0.0.1:8000/api/ai/status
 2. In Render, choose **New +** → **Blueprint**.
 3. Select this repository; Render will detect `render.yaml`.
 4. Set secret env vars in Render dashboard:
+	- `DATABASE_URL` (Neon pooled connection string using `postgresql+asyncpg://...`)
 	- `AUTH_SECRET`
 	- `GROQ_API_KEY` and/or `GEMINI_API_KEY`
 	- `GOOGLE_CLIENT_ID` (if using Google auth)
@@ -217,8 +218,9 @@ curl http://127.0.0.1:8000/api/ai/status
 ### Notes
 
 - Current default DB is SQLite in `backend/storage/ai_ppt.db`.
-- Add a Render Persistent Disk mounted at `/opt/render/project/src/backend/storage` to keep SQLite data across deploys/restarts.
-- For production scale, prefer Postgres and set `DATABASE_URL`.
+- For Neon (recommended), create a Neon Postgres project and set Render `DATABASE_URL` to:
+	- `postgresql+asyncpg://USER:PASSWORD@HOST/DBNAME?sslmode=require`
+- With Neon `DATABASE_URL`, no Render persistent disk is required for the database.
 
 ## Roadmap Suggestions
 
