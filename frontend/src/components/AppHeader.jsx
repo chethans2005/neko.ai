@@ -22,6 +22,7 @@ function AppHeader({
           </div>
           <div className="brand-text">
             <h1>neko.ai</h1>
+            <span className="brand-tagline">Create smarter presentations — generate, preview, refine</span>
           </div>
         </div>
       </div>
@@ -36,13 +37,13 @@ function AppHeader({
           <Info size={14} aria-hidden="true" />
           <span>About Me</span>
         </a>
-        <button className="btn btn-secondary history-header-btn" onClick={handleOpenHistory} title="Open history">
-          <History size={14} aria-hidden="true" />
-          <span>History</span>
-        </button>
         <div className="profile-wrap" ref={profileWrapRef}>
           {user ? (
             <>
+              <button className="btn btn-secondary history-header-btn" onClick={handleOpenHistory} title="Open history">
+                <History size={14} aria-hidden="true" />
+                <span>History</span>
+              </button>
               <button className="btn btn-secondary profile-btn" onClick={() => setShowProfileMenu((v) => !v)} title="Open profile menu">
                 {user.avatar_url ? (
                   <img src={user.avatar_url} alt={user.name} className="profile-avatar-image" />

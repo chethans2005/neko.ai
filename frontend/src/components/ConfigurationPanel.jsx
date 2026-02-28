@@ -44,7 +44,7 @@ function ConfigurationPanel({
             <label className="form-label">Description <span style={{ color: 'var(--text-secondary)', fontWeight: 'normal' }}>(optional)</span></label>
             <textarea
               className="form-textarea"
-              placeholder="Add details like key points to cover, target audience, specific requirements, etc."
+              placeholder="Add details"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               disabled={isGenerating}
