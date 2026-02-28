@@ -728,6 +728,8 @@ body {
     flex-direction: column;
     height: auto;
     overflow: visible;
+    padding: var(--space-md);
+    gap: var(--space-md);
   }
   
   .sidebar {
@@ -738,20 +740,91 @@ body {
   }
 }
 
+@media (max-width: 768px) {
+  .main-content {
+    padding: var(--space-sm);
+    gap: var(--space-sm);
+  }
+  
+  .panel-content {
+    padding: var(--space-md);
+  }
+  
+  .form-input,
+  .form-select,
+  .form-textarea {
+    font-size: 16px; /* Prevents iOS zoom */
+    padding: 0.75rem 1rem;
+    min-height: 44px; /* Touch-friendly */
+  }
+  
+  .btn {
+    min-height: 48px; /* Better touch targets */
+    padding: 0.875rem 1.25rem;
+    font-size: 1rem;
+  }
+  
+  .form-group {
+    margin-bottom: 1.25rem;
+  }
+  
+  .form-label {
+    margin-bottom: 0.5rem;
+    font-size: 0.95rem;
+  }
+  
+  .header-actions {
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+  }
+}
+
 @media (max-width: 640px) {
   .template-grid {
     grid-template-columns: 1fr;
+    gap: var(--space-sm);
   }
   
   .header {
     flex-direction: column;
     gap: var(--space-md);
+    padding: var(--space-md);
   }
 
   .header-actions > .btn,
   .header-actions .profile-btn {
     min-width: 0;
     width: auto;
+    flex: 1;
+  }
+  
+  .panel-header {
+    padding: var(--space-md);
+  }
+  
+  .panel-content {
+    padding: var(--space-sm) var(--space-md);
+  }
+  
+  .form-input,
+  .form-select,
+  .form-textarea {
+    padding: 1rem;
+  }
+  
+  .config-panel .btn-lg {
+    padding: 1rem 1.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+  
+  .slide-content {
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+  
+  .template-card {
+    padding: var(--space-md);
   }
 }
 
