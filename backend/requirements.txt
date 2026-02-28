@@ -10,6 +10,7 @@ pydantic==2.8.0
 # HTTP Client
 httpx==0.27.0
 google-auth>=2.35.0
+google-auth-oauthlib>=1.2.0
 
 # PowerPoint Generation
 python-pptx==1.0.0
