@@ -90,6 +90,7 @@ Create `frontend/.env` (or use `.env.example`):
 
 ```env
 VITE_GOOGLE_CLIENT_ID=...
+VITE_API_BASE_URL=http://127.0.0.1:8000/api
 ```
 
 Run frontend:
@@ -99,6 +100,17 @@ npm run dev
 ```
 
 Open: `http://127.0.0.1:5173`
+
+## Deploy Frontend on Vercel
+
+1. Import this repo in Vercel.
+2. Set **Root Directory** to `frontend`.
+3. Framework preset: `Vite`.
+4. Add environment variables:
+	- `VITE_GOOGLE_CLIENT_ID`
+	- `VITE_API_BASE_URL` = `https://<your-render-backend>.onrender.com/api`
+5. Deploy.
+6. Add your Vercel URL to backend `CORS_ORIGINS` and redeploy backend.
 
 ## OAuth Notes (Google)
 
