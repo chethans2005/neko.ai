@@ -72,7 +72,7 @@ function App() {
   const parseFilename = (headers, fallback) => {
     const disposition = headers?.['content-disposition'] || headers?.['Content-Disposition'];
     if (!disposition) return fallback;
-    const match = disposition.match(/filename\*?=(?:UTF-8''|\")?([^";\n]+)/i);
+    const match = disposition.match(/filename\*?=(?:UTF-8''|")?([^";\n]+)/i);
     if (!match?.[1]) return fallback;
     return decodeURIComponent(match[1].replace(/"/g, ''));
   };
@@ -463,7 +463,7 @@ function App() {
             </h2>
             {slides.length > 0 && (
               <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                Click "Edit" to modify individual slides
+                Click &quot;Edit&quot; to modify individual slides
               </span>
             )}
           </div>
@@ -473,7 +473,7 @@ function App() {
               <div className="empty-state">
                 <div className="empty-state-icon" aria-hidden="true"><FileText size={30} /></div>
                 <h3>No Presentation Yet</h3>
-                <p>Enter a topic and click "Generate Presentation" to get started.</p>
+                <p>Enter a topic and click &quot;Generate Presentation&quot; to get started.</p>
               </div>
             ) : isGenerating ? (
               <div className="loading">

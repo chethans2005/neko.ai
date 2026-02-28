@@ -5,9 +5,17 @@ __pycache__/
 .python-version
 .env
 .env.*
+**/.env
+**/.env.*
 ppt_env/
 venv/
 .venv/
+env/
+ENV/
+**/venv/
+**/.venv/
+**/env/
+**/ENV/
 node_modules/
 dist/
 build/
