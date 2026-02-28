@@ -22,6 +22,13 @@ os.makedirs(DATABASE_DIR, exist_ok=True)
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite+aiosqlite:///{DATABASE_PATH}")
 IS_SQLITE = DATABASE_URL.startswith("sqlite")
 
+# Fix asyncpg SSL parameter compatibility with Neon/Postgres
+if not IS_SQLITE and "sslmode=" in DATABASE_URL:
+    # Convert sslmode=require to ssl=require for asyncpg compatibility
+    DATABASE_URL = DATABASE_URL.replace("sslmode=require", "ssl=require")
+    # Remove channel_binding parameter which asyncpg doesn't support
+    DATABASE_URL = DATABASE_URL.replace("&channel_binding=require", "").replace("?channel_binding=require", "").replace("channel_binding=require&", "").replace("channel_binding=require", "")
+
 
 class Base(DeclarativeBase):
     """Base class for all database models."""

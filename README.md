@@ -10,7 +10,7 @@ AI-powered presentation generator with session-based editing, user auth, provide
 - Slide-level editing with version history
 - Themed PPT output via `python-pptx`
 - Async job-based generation with progress polling
-- Slide-based usage quota (currently enforced at total 20 slides/user)
+- Slide-based usage quota (currently enforced at total 50 slides/user)
 
 ## Tech Stack
 
@@ -132,7 +132,7 @@ Origin mismatch is strict.
 
 - Quota is currently slide-based, not request-based.
 - Enforced in backend generation endpoints.
-- Current cap: **20 total slides per user**.
+- Current cap: **50 total slides per user**.
 
 ## Key Endpoints
 
@@ -213,7 +213,7 @@ curl http://127.0.0.1:8000/api/ai/status
 2. In Render, choose **New +** → **Blueprint**.
 3. Select this repository; Render will detect `render.yaml`.
 4. Set secret env vars in Render dashboard:
-	- `DATABASE_URL` (Neon pooled connection string using `postgresql+asyncpg://...`)
+	- `DATABASE_URL` (Neon connection string: `postgresql+asyncpg://USER:PASSWORD@HOST/DBNAME?ssl=require`)
 	- `AUTH_SECRET`
 	- `GROQ_API_KEY` and/or `GEMINI_API_KEY`
 	- `GOOGLE_CLIENT_ID` (if using Google auth)
@@ -231,7 +231,7 @@ curl http://127.0.0.1:8000/api/ai/status
 
 - Current default DB is SQLite in `backend/storage/ai_ppt.db`.
 - For Neon (recommended), create a Neon Postgres project and set Render `DATABASE_URL` to:
-	- `postgresql+asyncpg://USER:PASSWORD@HOST/DBNAME?sslmode=require`
+	- `postgresql+asyncpg://USER:PASSWORD@HOST/DBNAME?ssl=require`
 - With Neon `DATABASE_URL`, no Render persistent disk is required for the database.
 
 ## Roadmap Suggestions
