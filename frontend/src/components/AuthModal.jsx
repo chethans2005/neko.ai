@@ -3,6 +3,7 @@ function AuthModal({
   onClose,
   authMode,
   signupStep,
+  authError,
   authForm,
   setAuthForm,
   isAuthLoading,
@@ -16,7 +17,7 @@ function AuthModal({
   const isSignupOtpStep = authMode === 'signup' && signupStep === 'otp'
 
   return (
-    <div className="auth-overlay" onClick={onClose}>
+    <div className="auth-overlay">
       <main className="auth-shell" onClick={(e) => e.stopPropagation()}>
         <div className="auth-card panel">
           <div className="panel-header">
@@ -25,8 +26,18 @@ function AuthModal({
                 ? (isSignupOtpStep ? 'Verify your email' : 'Create account')
                 : 'Welcome back'}
             </h2>
+            <button
+              className="btn btn-sm btn-secondary"
+              onClick={onClose}
+              disabled={isAuthLoading}
+              title="Close"
+            >
+              Close
+            </button>
           </div>
           <div className="panel-content auth-content">
+            {authError && <p className="auth-error">{authError}</p>}
+
             {authMode === 'signup' && !isSignupOtpStep && (
               <div className="form-group">
                 <label className="form-label">Name</label>

@@ -47,6 +47,8 @@ else:
     engine = create_async_engine(
         DATABASE_URL,
         echo=False,  # Set to True for SQL query logging
+        pool_pre_ping=True,
+        pool_recycle=300,
     )
 
 # Async session factory

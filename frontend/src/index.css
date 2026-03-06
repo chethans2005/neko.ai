@@ -1285,6 +1285,15 @@ body {
   color: var(--text-secondary);
 }
 
+.auth-error {
+  font-size: 0.875rem;
+  color: var(--error);
+  border: 1px solid color-mix(in srgb, var(--error) 55%, transparent);
+  background: color-mix(in srgb, var(--error) 12%, transparent);
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-sm);
+}
+
 .google-btn {
   display: inline-flex;
   align-items: center;

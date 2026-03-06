@@ -55,6 +55,7 @@ function App() {
   const [authMode, setAuthMode] = useState('login');
   const [signupStep, setSignupStep] = useState('form');
   const [authForm, setAuthForm] = useState({ name: '', email: '', password: '', otp: '', signupToken: '' });
+  const [authError, setAuthError] = useState('');
   const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showHistorySidebar, setShowHistorySidebar] = useState(false);
@@ -178,16 +179,24 @@ function App() {
   }, [showProfileMenu]);
 
   const handleAuthSubmit = async () => {
+    setAuthError('');
+
     if (!authForm.email.trim() || !authForm.password.trim()) {
-      showMessage('error', 'Email and password are required');
+      const message = 'Email and password are required';
+      setAuthError(message);
+      showMessage('error', message);
       return;
     }
     if (authMode === 'signup' && signupStep === 'form' && !authForm.name.trim()) {
-      showMessage('error', 'Name is required for signup');
+      const message = 'Name is required for signup';
+      setAuthError(message);
+      showMessage('error', message);
       return;
     }
     if (authMode === 'signup' && signupStep === 'otp' && !authForm.otp.trim()) {
-      showMessage('error', 'Please enter the OTP code sent to your email');
+      const message = 'Please enter the OTP code sent to your email';
+      setAuthError(message);
+      showMessage('error', message);
       return;
     }
 
@@ -203,6 +212,7 @@ function App() {
           signupToken: response.signup_token,
         }));
         setSignupStep('otp');
+        setAuthError('');
         showMessage('success', 'OTP sent to your email. Please verify to complete signup.');
         return;
       }
@@ -212,23 +222,46 @@ function App() {
         await finishAuth(response);
         setSignupStep('form');
         setAuthForm({ name: '', email: '', password: '', otp: '', signupToken: '' });
+        setAuthError('');
         showMessage('success', 'Account created successfully');
         return;
       }
 
       const response = await login(authForm.email.trim(), authForm.password);
       await finishAuth(response);
+      setAuthError('');
       showMessage('success', 'Login successful');
     } catch (err) {
-      showMessage('error', err.response?.data?.detail || err.message || 'Authentication failed');
+      const status = err?.response?.status;
+      const detail = err?.response?.data?.detail;
+      let message = detail || err?.message || 'Authentication failed';
+
+      if (!err?.response) {
+        message = 'Unable to reach server. Please check your connection and try again.';
+      } else if (status === 401) {
+        message = 'Invalid email or password. Please try again.';
+      } else if (status === 404) {
+        message = 'Auth service endpoint not found. Backend may not be updated yet.';
+      } else if (status === 429) {
+        message = detail || 'Too many attempts. Please wait a moment and try again.';
+      } else if (status >= 500) {
+        message = detail || 'Server error while processing authentication. Please try again shortly.';
+      }
+
+      setAuthError(message);
+      showMessage('error', message);
     } finally {
       setIsAuthLoading(false);
     }
   };
 
   const handleResendOtp = async () => {
+    setAuthError('');
+
     if (!authForm.name.trim() || !authForm.email.trim() || !authForm.password.trim()) {
-      showMessage('error', 'Name, email and password are required to resend OTP');
+      const message = 'Name, email and password are required to resend OTP';
+      setAuthError(message);
+      showMessage('error', message);
       return;
     }
 
@@ -237,9 +270,23 @@ function App() {
       const response = await signupStart(authForm.name.trim(), authForm.email.trim(), authForm.password);
       setAuthForm((prev) => ({ ...prev, signupToken: response.signup_token, otp: '' }));
       setSignupStep('otp');
+      setAuthError('');
       showMessage('success', 'New OTP sent to your email');
     } catch (err) {
-      showMessage('error', err.response?.data?.detail || err.message || 'Failed to resend OTP');
+      const status = err?.response?.status;
+      const detail = err?.response?.data?.detail;
+      let message = detail || err?.message || 'Failed to resend OTP';
+
+      if (!err?.response) {
+        message = 'Unable to reach server. Please check your connection and try again.';
+      } else if (status === 404) {
+        message = 'OTP endpoint not found. Backend may not be updated yet.';
+      } else if (status === 429) {
+        message = detail || 'Please wait before requesting another OTP.';
+      }
+
+      setAuthError(message);
+      showMessage('error', message);
     } finally {
       setIsAuthLoading(false);
     }
@@ -249,6 +296,7 @@ function App() {
     setAuthMode((prev) => (prev === 'signup' ? 'login' : 'signup'));
     setSignupStep('form');
     setAuthForm({ name: '', email: '', password: '', otp: '', signupToken: '' });
+    setAuthError('');
   };
 
   const handleGoogleAuth = async () => {
@@ -460,9 +508,11 @@ function App() {
         onClose={() => {
           setShowAuthModal(false)
           setSignupStep('form')
+          setAuthError('')
         }}
         authMode={authMode}
         signupStep={signupStep}
+        authError={authError}
         authForm={authForm}
         setAuthForm={setAuthForm}
         isAuthLoading={isAuthLoading}

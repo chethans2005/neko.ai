@@ -18,26 +18,11 @@ AI-powered presentation generator with session-based editing, user auth, provide
 - Backend: `FastAPI`, `SQLAlchemy (async)`, `SQLite`, `python-pptx`
 - AI Providers: `Groq`, `Google Gemini`
 
-## Current Architecture
+## Security Note
 
-### Backend
-
-- `backend/app/api/routes.py`: Main API endpoints
-- `backend/app/api/dependencies.py`: Shared auth/session ownership dependencies
-- `backend/app/ai/router.py`: Provider routing + cooldown/failover
-- `backend/app/services/*`: Session, generation, slides, PPT rendering, auth
-- `backend/db/*`: Async DB models + CRUD
-
-### Frontend (modularized)
-
-- `frontend/src/App.jsx`: Orchestrator/state container
-- `frontend/src/components/AppHeader.jsx`
-- `frontend/src/components/AuthModal.jsx`
-- `frontend/src/components/ConfigurationPanel.jsx`
-- `frontend/src/components/HistoryDrawer.jsx`
-- `frontend/src/components/DeleteConfirmModal.jsx`
-- `frontend/src/components/AlertToasts.jsx`
-- `frontend/src/constants/presentationOptions.js`
+- Do not commit real credentials, API keys, SMTP passwords, or tokens to Git.
+- Keep production secrets only in your deployment platform environment settings.
+- Treat `.env` files as local-only and ensure they are ignored by Git.
 
 ## Prerequisites
 
@@ -145,46 +130,10 @@ In Google Cloud OAuth settings, add exact origins used in dev:
 
 Origin mismatch is strict.
 
-## Provider Routing Behavior
+## API Access
 
-- Provider order is defined in `backend/app/ai/router.py`
-- Current preference: `Groq` first, then `Gemini`
-- On provider rate-limit/error, router fails over to next provider
-- Provider status endpoint: `GET /api/ai/status`
-
-## Usage Quota
-
-- Quota is currently slide-based, not request-based.
-- Enforced in backend generation endpoints.
-- Current cap: **50 total slides per user**.
-
-## Key Endpoints
-
-### Auth
-
-- `POST /api/auth/signup` (alias for signup start)
-- `POST /api/auth/signup/start`
-- `POST /api/auth/signup/verify`
-- `POST /api/auth/login`
-- `POST /api/auth/google`
-- `GET /api/auth/me`
-
-### History
-
-- `GET /api/history`
-- `GET /api/history/download/{history_id}`
-- `DELETE /api/history/{history_id}`
-
-### Generation / Slides
-
-- `POST /api/session/start`
-- `POST /api/generate`
-- `POST /api/generate-sync`
-- `GET /api/status/{job_id}`
-- `GET /api/preview/{session_id}`
-- `POST /api/update-slide`
-- `GET /api/download/{session_id}`
-- `GET /api/templates`
+- API routes are available under `/api` after backend startup.
+- For local verification, use `/health` and `/api/ai/status`.
 
 ## Testing & Validation
 
