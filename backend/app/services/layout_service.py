@@ -12,18 +12,16 @@ class LayoutService:
     """Decides which layout to use for a slide based on content."""
 
     def choose_layout(self, slide: Dict[str, Any]) -> LayoutType:
-        """Choose layout using simple heuristics based on content length.
+        """Choose layout for a slide.
 
+        Current behavior intentionally prefers single-column content slides.
         - If slide has no content -> TITLE_SLIDE
-        - If content length <= 3 -> CONTENT_SLIDE
-        - Else -> TWO_COLUMN
+        - Otherwise -> CONTENT_SLIDE
         """
         content = slide.get('content') or []
         if not content:
             return LayoutType.TITLE_SLIDE
-        if len(content) <= 3:
-            return LayoutType.CONTENT_SLIDE
-        return LayoutType.TWO_COLUMN
+        return LayoutType.CONTENT_SLIDE
 
 
 layout_service = LayoutService()

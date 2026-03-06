@@ -34,8 +34,6 @@ class PPTRenderer:
             layout = layout_service.choose_layout(s)
             if layout == LayoutType.TITLE_SLIDE:
                 self._add_simple_title(prs, s, theme)
-            elif layout == LayoutType.TWO_COLUMN:
-                self._add_two_column(prs, s, theme)
             else:
                 self._add_content_slide(prs, s, theme)
 

@@ -18,29 +18,33 @@ class OutlineService:
     Creates structured outlines that can be converted to slides.
     """
     
-    SYSTEM_PROMPT = """You are an expert presentation designer. Create clear, engaging, and well-structured presentation outlines.
+    SYSTEM_PROMPT = """You are a senior presentation strategist.
 
-Your task is to generate a presentation outline with the specified number of slides.
-
-Each slide should have:
-- A compelling title (max 10 words)
-- 4-6 bullet points of substantive content (each bullet should be informative, 10-20 words)
-- Optional speaker notes with additional context
-
-Create comprehensive, detailed slides that provide real value. Avoid generic or vague bullet points.
-
-Respond ONLY with valid JSON in this exact format:
+Return ONLY strict JSON (no markdown, no commentary) with this schema:
 {
     "slides": [
         {
-            "title": "Slide Title",
-            "content": ["Detailed bullet point 1", "Detailed bullet point 2", "Detailed bullet point 3", "Detailed bullet point 4", "Detailed bullet point 5"],
-            "speaker_notes": "Optional notes for the presenter"
+            "title": "string",
+            "content": ["string", "string", "string", "string"],
+            "speaker_notes": "string"
         }
     ]
 }
 
-Make the presentation flow logically from introduction to conclusion."""
+Quality rules:
+- Produce exactly the requested number of slides.
+- Each slide title: 4-10 words, specific and outcome-oriented.
+- Each slide content: exactly 4 concise bullets; each bullet 8-16 words.
+- Avoid generic filler, repetition, and buzzwords.
+- Keep bullets mutually distinct and logically sequenced.
+- Keep facts plausible; do not invent precise statistics unless asked.
+- speaker_notes: 1-2 short sentences with delivery guidance.
+
+Structure rules:
+- Slide flow should progress logically from context → analysis → actions → conclusion.
+- When the topic is strategic/business, include at least one slide with metrics/KPIs framework.
+- When the topic is technical, include architecture/trade-off perspective.
+"""
 
     def _get_tone_instructions(self, tone: ToneType) -> str:
         """Get tone-specific instructions."""
@@ -52,6 +56,29 @@ Make the presentation flow logically from introduction to conclusion."""
             ToneType.ACADEMIC: "Use scholarly language with proper citations format. Include theoretical frameworks and methodology.",
         }
         return instructions.get(tone, instructions[ToneType.PROFESSIONAL])
+
+    def _build_outline_prompt(
+        self,
+        topic: str,
+        num_slides: int,
+        tone: ToneType,
+        context: Optional[str] = None,
+        additional_instructions: Optional[str] = None,
+    ) -> str:
+        parts = [
+            f"Topic: {topic}",
+            f"Slides required: {num_slides}",
+            f"Tone guidance: {self._get_tone_instructions(tone)}",
+        ]
+
+        if context:
+            parts.append(f"Prior context: {context}")
+
+        if additional_instructions:
+            parts.append(f"Additional constraints: {additional_instructions}")
+
+        parts.append("Ensure output is valid JSON and follows the required schema exactly.")
+        return "\n".join(parts)
 
     async def generate_outline(
         self,
@@ -74,19 +101,13 @@ Make the presentation flow logically from introduction to conclusion."""
         Returns:
             List of SlideWithHistory objects
         """
-        # Build the prompt
-        prompt_parts = [
-            f"Create a {num_slides}-slide presentation about: {topic}",
-            f"\nTone: {self._get_tone_instructions(tone)}"
-        ]
-        
-        if context:
-            prompt_parts.append(f"\nContext: {context}")
-        
-        if additional_instructions:
-            prompt_parts.append(f"\nAdditional instructions: {additional_instructions}")
-        
-        prompt = "\n".join(prompt_parts)
+        prompt = self._build_outline_prompt(
+            topic=topic,
+            num_slides=num_slides,
+            tone=tone,
+            context=context,
+            additional_instructions=additional_instructions,
+        )
         
         # Generate using AI
         response = await ai_router.generate_json(
@@ -151,7 +172,7 @@ Make the presentation flow logically from introduction to conclusion."""
         """
         current = slide.versions[slide.current_version]
         
-        system_prompt = f"""You are an expert presentation designer. Modify the given slide based on the user's instruction.
+        system_prompt = f"""You are a senior presentation editor. Modify the slide according to user instruction while preserving coherence with the deck.
 
 Current slide:
 - Title: {current.title}
@@ -161,12 +182,19 @@ Current slide:
 Presentation topic: {topic}
 Tone: {self._get_tone_instructions(tone)}
 
-Respond ONLY with valid JSON:
+Return ONLY valid JSON with this schema:
 {{
     "title": "Updated slide title",
-    "content": ["Updated bullet 1", "Updated bullet 2", "Updated bullet 3"],
+    "content": ["Updated bullet 1", "Updated bullet 2", "Updated bullet 3", "Updated bullet 4"],
     "speaker_notes": "Updated speaker notes"
-}}"""
+}}
+
+Rules:
+- Keep title specific (4-10 words).
+- Return exactly 4 concise bullets (8-16 words each).
+- Preserve factual consistency with existing slide unless user asks to change facts.
+- Prefer concrete, actionable wording over generic statements.
+"""
 
         prompt_parts = [f"Instruction: {instruction}"]
         
