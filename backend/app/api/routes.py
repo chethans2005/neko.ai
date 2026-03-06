@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Header
 from fastapi.responses import FileResponse, JSONResponse
 from typing import Optional
 import os
+import hmac
 from datetime import datetime
 import shutil
 
@@ -15,7 +16,7 @@ from app.models.schemas import (
     SessionResponse, GenerateResponse, JobStatusResponse, PreviewResponse,
     UpdateSlideResponse, DownloadResponse, ErrorResponse, TemplateType,
     SlideWithHistory, SlideVersion, JobStatus,
-    SignupRequest, LoginRequest, GoogleLoginRequest, AuthResponse,
+    SignupRequest, SignupStartResponse, SignupVerifyRequest, LoginRequest, GoogleLoginRequest, AuthResponse,
     AuthUserResponse, HistoryItemResponse,
 )
 from app.services.session_service import session_manager
@@ -26,8 +27,23 @@ from app.services.template_service import template_service
 from app.services.job_service import job_manager
 from app.services.auth_service import (
     hash_password,
+    normalize_email,
     verify_password,
+    hash_otp,
     create_access_token,
+    build_signup_token,
+    verify_signup_token,
+    generate_otp_code,
+    send_signup_otp_email,
+    is_disposable_email,
+    otp_expiry_time,
+    resend_available_time,
+    pending_signup_expiry_time,
+    utc_now,
+    OTP_MAX_ATTEMPTS,
+    OTP_TTL_SECONDS,
+    OTP_RESEND_COOLDOWN_SECONDS,
+    AUTH_DEBUG_RETURN_OTP,
     verify_google_id_token,
     link_history_to_session,
 )
@@ -44,21 +60,98 @@ SLIDES_GENERATION_LIMIT = 50
 # Auth Endpoints
 # =============================================================================
 
-@router.post("/auth/signup", response_model=AuthResponse)
-async def signup(request: SignupRequest):
+@router.post("/auth/signup", response_model=SignupStartResponse)
+@router.post("/auth/signup/start", response_model=SignupStartResponse)
+async def signup_start(request: SignupRequest):
     db = await get_db_session()
     try:
-        existing = await crud.get_user_by_email(db, request.email)
+        email = normalize_email(request.email)
+        existing = await crud.get_user_by_email(db, email)
         if existing:
             raise HTTPException(status_code=400, detail="Email is already registered")
 
+        if await is_disposable_email(email):
+            raise HTTPException(status_code=400, detail="Please use a permanent email address")
+
+        active_otp = await crud.get_latest_active_email_otp(db, email, "signup")
+        now = utc_now()
+        if active_otp and active_otp.expires_at > now and active_otp.resend_available_at > now:
+            wait_seconds = int((active_otp.resend_available_at - now).total_seconds())
+            raise HTTPException(status_code=429, detail=f"Please wait {max(wait_seconds, 1)}s before requesting a new code")
+
+        await crud.upsert_pending_signup(
+            db=db,
+            email=email,
+            name=request.name.strip(),
+            password_hash=hash_password(request.password),
+            expires_at=pending_signup_expiry_time(),
+        )
+
+        otp_code = generate_otp_code()
+        await crud.create_email_otp(
+            db=db,
+            email=email,
+            purpose="signup",
+            code_hash=hash_otp(email, otp_code, "signup"),
+            expires_at=otp_expiry_time(),
+            resend_available_at=resend_available_time(),
+        )
+
+        sent = await send_signup_otp_email(email, request.name.strip(), otp_code)
+        if not sent and not AUTH_DEBUG_RETURN_OTP:
+            raise HTTPException(status_code=500, detail="Failed to send verification email")
+
+        return SignupStartResponse(
+            message="Verification code sent to your email",
+            signup_token=build_signup_token(email),
+            otp_expires_in_seconds=OTP_TTL_SECONDS,
+            dev_otp=otp_code if AUTH_DEBUG_RETURN_OTP else None,
+        )
+    finally:
+        await db.close()
+
+
+@router.post("/auth/signup/verify", response_model=AuthResponse)
+async def signup_verify(request: SignupVerifyRequest):
+    db = await get_db_session()
+    try:
+        email = normalize_email(request.email)
+        if not verify_signup_token(request.signup_token, email):
+            raise HTTPException(status_code=400, detail="Invalid or expired signup token")
+
+        existing = await crud.get_user_by_email(db, email)
+        if existing:
+            raise HTTPException(status_code=400, detail="Email is already registered")
+
+        pending = await crud.get_pending_signup_by_email(db, email)
+        if not pending or pending.expires_at < utc_now():
+            raise HTTPException(status_code=400, detail="Signup request expired. Please request a new code")
+
+        otp_record = await crud.get_latest_active_email_otp(db, email, "signup")
+        if not otp_record:
+            raise HTTPException(status_code=400, detail="No active verification code. Please request a new code")
+        if otp_record.expires_at < utc_now():
+            raise HTTPException(status_code=400, detail="Verification code expired. Please request a new code")
+
+        submitted_hash = hash_otp(email, request.otp.strip(), "signup")
+        if not hmac.compare_digest(submitted_hash, otp_record.code_hash):
+            otp_record = await crud.increment_email_otp_attempts(db, otp_record)
+            if otp_record.attempts >= OTP_MAX_ATTEMPTS:
+                await crud.mark_email_otp_used(db, otp_record)
+                raise HTTPException(status_code=400, detail="Too many invalid attempts. Please request a new code")
+            raise HTTPException(status_code=400, detail="Invalid verification code")
+
+        await crud.mark_email_otp_used(db, otp_record)
+
         user = await crud.create_user(
             db=db,
-            name=request.name.strip(),
-            email=request.email,
-            password_hash=hash_password(request.password),
+            name=pending.name,
+            email=email,
+            password_hash=pending.password_hash,
             provider="email",
         )
+        await crud.delete_pending_signup(db, pending)
+
         token = create_access_token(user.user_id, user.email, user.name)
         return AuthResponse(
             access_token=token,

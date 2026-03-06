@@ -18,6 +18,8 @@ from db.models import (
     UserModel,
     UserSessionMapModel,
     PresentationHistoryModel,
+    EmailOtpModel,
+    PendingSignupModel,
 )
 
 
@@ -359,6 +361,105 @@ async def increment_user_requests(db: AsyncSession, user: UserModel, amount: int
     await db.commit()
     await db.refresh(user)
     return user
+
+
+async def upsert_pending_signup(
+    db: AsyncSession,
+    email: str,
+    name: str,
+    password_hash: str,
+    expires_at: datetime,
+) -> PendingSignupModel:
+    normalized_email = email.lower().strip()
+    result = await db.execute(
+        select(PendingSignupModel).where(PendingSignupModel.email == normalized_email)
+    )
+    pending = result.scalar_one_or_none()
+
+    if pending:
+        pending.name = name
+        pending.password_hash = password_hash
+        pending.expires_at = expires_at
+        pending.created_at = datetime.utcnow()
+    else:
+        pending = PendingSignupModel(
+            email=normalized_email,
+            name=name,
+            password_hash=password_hash,
+            created_at=datetime.utcnow(),
+            expires_at=expires_at,
+        )
+        db.add(pending)
+
+    await db.commit()
+    await db.refresh(pending)
+    return pending
+
+
+async def get_pending_signup_by_email(db: AsyncSession, email: str) -> Optional[PendingSignupModel]:
+    result = await db.execute(
+        select(PendingSignupModel).where(PendingSignupModel.email == email.lower().strip())
+    )
+    return result.scalar_one_or_none()
+
+
+async def delete_pending_signup(db: AsyncSession, pending: PendingSignupModel) -> None:
+    await db.delete(pending)
+    await db.commit()
+
+
+async def create_email_otp(
+    db: AsyncSession,
+    email: str,
+    purpose: str,
+    code_hash: str,
+    expires_at: datetime,
+    resend_available_at: datetime,
+) -> EmailOtpModel:
+    normalized_email = email.lower().strip()
+    existing = await get_latest_active_email_otp(db, normalized_email, purpose)
+    if existing:
+        existing.used_at = datetime.utcnow()
+
+    otp = EmailOtpModel(
+        email=normalized_email,
+        purpose=purpose,
+        code_hash=code_hash,
+        attempts=0,
+        expires_at=expires_at,
+        resend_available_at=resend_available_at,
+        created_at=datetime.utcnow(),
+    )
+    db.add(otp)
+    await db.commit()
+    await db.refresh(otp)
+    return otp
+
+
+async def get_latest_active_email_otp(db: AsyncSession, email: str, purpose: str) -> Optional[EmailOtpModel]:
+    result = await db.execute(
+        select(EmailOtpModel)
+        .where(EmailOtpModel.email == email.lower().strip())
+        .where(EmailOtpModel.purpose == purpose)
+        .where(EmailOtpModel.used_at.is_(None))
+        .order_by(EmailOtpModel.created_at.desc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
+async def increment_email_otp_attempts(db: AsyncSession, otp: EmailOtpModel) -> EmailOtpModel:
+    otp.attempts = (otp.attempts or 0) + 1
+    await db.commit()
+    await db.refresh(otp)
+    return otp
+
+
+async def mark_email_otp_used(db: AsyncSession, otp: EmailOtpModel) -> EmailOtpModel:
+    otp.used_at = datetime.utcnow()
+    await db.commit()
+    await db.refresh(otp)
+    return otp
 
 
 async def map_session_to_user(db: AsyncSession, user_db_id: int, session_uuid: str) -> UserSessionMapModel:

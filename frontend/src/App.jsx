@@ -14,7 +14,8 @@ import {
   pollJobStatus,
   getPreview,
   updateSlide,
-  signup,
+  signupStart,
+  signupVerify,
   login,
   loginWithGoogle,
   getMe,
@@ -52,7 +53,8 @@ function App() {
   const [historyItems, setHistoryItems] = useState([]);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [authMode, setAuthMode] = useState('login');
-  const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' });
+  const [signupStep, setSignupStep] = useState('form');
+  const [authForm, setAuthForm] = useState({ name: '', email: '', password: '', otp: '', signupToken: '' });
   const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showHistorySidebar, setShowHistorySidebar] = useState(false);
@@ -180,23 +182,73 @@ function App() {
       showMessage('error', 'Email and password are required');
       return;
     }
-    if (authMode === 'signup' && !authForm.name.trim()) {
+    if (authMode === 'signup' && signupStep === 'form' && !authForm.name.trim()) {
       showMessage('error', 'Name is required for signup');
+      return;
+    }
+    if (authMode === 'signup' && signupStep === 'otp' && !authForm.otp.trim()) {
+      showMessage('error', 'Please enter the OTP code sent to your email');
       return;
     }
 
     setIsAuthLoading(true);
     try {
-      const response = authMode === 'signup'
-        ? await signup(authForm.name.trim(), authForm.email.trim(), authForm.password)
-        : await login(authForm.email.trim(), authForm.password);
+      if (authMode === 'signup' && signupStep === 'form') {
+        const response = await signupStart(authForm.name.trim(), authForm.email.trim(), authForm.password);
+        setAuthForm((prev) => ({
+          ...prev,
+          email: authForm.email.trim(),
+          name: authForm.name.trim(),
+          otp: '',
+          signupToken: response.signup_token,
+        }));
+        setSignupStep('otp');
+        showMessage('success', 'OTP sent to your email. Please verify to complete signup.');
+        return;
+      }
+
+      if (authMode === 'signup' && signupStep === 'otp') {
+        const response = await signupVerify(authForm.email.trim(), authForm.otp.trim(), authForm.signupToken);
+        await finishAuth(response);
+        setSignupStep('form');
+        setAuthForm({ name: '', email: '', password: '', otp: '', signupToken: '' });
+        showMessage('success', 'Account created successfully');
+        return;
+      }
+
+      const response = await login(authForm.email.trim(), authForm.password);
       await finishAuth(response);
-      showMessage('success', authMode === 'signup' ? 'Account created successfully' : 'Login successful');
+      showMessage('success', 'Login successful');
     } catch (err) {
       showMessage('error', err.response?.data?.detail || err.message || 'Authentication failed');
     } finally {
       setIsAuthLoading(false);
     }
+  };
+
+  const handleResendOtp = async () => {
+    if (!authForm.name.trim() || !authForm.email.trim() || !authForm.password.trim()) {
+      showMessage('error', 'Name, email and password are required to resend OTP');
+      return;
+    }
+
+    setIsAuthLoading(true);
+    try {
+      const response = await signupStart(authForm.name.trim(), authForm.email.trim(), authForm.password);
+      setAuthForm((prev) => ({ ...prev, signupToken: response.signup_token, otp: '' }));
+      setSignupStep('otp');
+      showMessage('success', 'New OTP sent to your email');
+    } catch (err) {
+      showMessage('error', err.response?.data?.detail || err.message || 'Failed to resend OTP');
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
+  const handleToggleAuthMode = () => {
+    setAuthMode((prev) => (prev === 'signup' ? 'login' : 'signup'));
+    setSignupStep('form');
+    setAuthForm({ name: '', email: '', password: '', otp: '', signupToken: '' });
   };
 
   const handleGoogleAuth = async () => {
@@ -405,13 +457,18 @@ function App() {
 
       <AuthModal
         show={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
+        onClose={() => {
+          setShowAuthModal(false)
+          setSignupStep('form')
+        }}
         authMode={authMode}
-        setAuthMode={setAuthMode}
+        signupStep={signupStep}
         authForm={authForm}
         setAuthForm={setAuthForm}
         isAuthLoading={isAuthLoading}
         onAuthSubmit={handleAuthSubmit}
+        onToggleAuthMode={handleToggleAuthMode}
+        onResendOtp={handleResendOtp}
         onGoogleAuth={handleGoogleAuth}
       />
 

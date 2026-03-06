@@ -5,7 +5,7 @@ AI-powered presentation generator with session-based editing, user auth, provide
 ## Highlights
 
 - AI generation with automatic provider fallback (`Groq` primary, `Gemini` secondary)
-- Email/password + Google sign-in
+- Email OTP signup + password login + Google sign-in
 - Per-user presentation history (download + delete)
 - Slide-level editing with version history
 - Themed PPT output via `python-pptx`
@@ -71,6 +71,30 @@ GEMINI_API_KEY=...
 
 AUTH_SECRET=...
 GOOGLE_CLIENT_ID=...
+
+# OTP + email verification
+OTP_SECRET=...
+OTP_TTL_SECONDS=600
+OTP_MAX_ATTEMPTS=5
+OTP_RESEND_COOLDOWN_SECONDS=45
+PENDING_SIGNUP_TTL_SECONDS=1800
+SIGNUP_TOKEN_TTL_SECONDS=1800
+
+# SMTP (required for production OTP emails)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=...
+SMTP_PASSWORD=...
+SMTP_FROM_EMAIL=...
+SMTP_FROM_NAME=AI PPT
+SMTP_USE_TLS=true
+
+# Optional disposable-email provider API
+DISPOSABLE_EMAIL_API_URL=
+DISPOSABLE_EMAIL_API_KEY=
+
+# Dev only: return OTP in API response if SMTP is not configured
+AUTH_DEBUG_RETURN_OTP=false
 ```
 
 Run backend:
@@ -138,7 +162,9 @@ Origin mismatch is strict.
 
 ### Auth
 
-- `POST /api/auth/signup`
+- `POST /api/auth/signup` (alias for signup start)
+- `POST /api/auth/signup/start`
+- `POST /api/auth/signup/verify`
 - `POST /api/auth/login`
 - `POST /api/auth/google`
 - `GET /api/auth/me`

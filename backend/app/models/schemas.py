@@ -51,6 +51,19 @@ class SignupRequest(BaseModel):
     password: str = Field(..., min_length=6, max_length=128)
 
 
+class SignupStartResponse(BaseModel):
+    message: str
+    signup_token: str
+    otp_expires_in_seconds: int
+    dev_otp: Optional[str] = None
+
+
+class SignupVerifyRequest(BaseModel):
+    email: str = Field(..., min_length=5, max_length=255)
+    otp: str = Field(..., min_length=4, max_length=12)
+    signup_token: str = Field(..., min_length=10, max_length=2000)
+
+
 class LoginRequest(BaseModel):
     email: str = Field(..., min_length=5, max_length=255)
     password: str = Field(..., min_length=1, max_length=128)

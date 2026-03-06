@@ -1280,6 +1280,11 @@ body {
   gap: 0.75rem;
 }
 
+.auth-helper {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
 .google-btn {
   display: inline-flex;
   align-items: center;
