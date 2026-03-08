@@ -292,7 +292,7 @@ async def link_history_to_session(session_uuid: str, topic: Optional[str], filep
     db = await get_db_session()
     try:
         mapping = await crud.get_session_user_map(db, session_uuid)
-        if not mapping or not mapping.user:
+        if not mapping:
             return None
 
         filename = os.path.basename(filepath)
@@ -305,7 +305,7 @@ async def link_history_to_session(session_uuid: str, topic: Optional[str], filep
             file_path=filepath,
             slide_count=slide_count,
         )
-        await crud.increment_user_requests(db, mapping.user, amount=slide_count)
+        await crud.increment_user_requests_by_id(db, mapping.user_id, amount=slide_count)
         return item
     finally:
         await db.close()

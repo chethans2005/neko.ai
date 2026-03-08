@@ -422,7 +422,7 @@ async def _generate_presentation_task(
         job_manager.update_job_progress(job_id, 70, "Building presentation...")
         
         # Update session
-        await session_manager.update_session(
+        updated_session = await session_manager.update_session(
             session_id=session_id,
             topic=topic,
             slides=slides,
@@ -445,7 +445,8 @@ async def _generate_presentation_task(
         job_manager.update_job_progress(job_id, 90, "Finalizing...")
         
         # Generate PPT file
-        updated_session = await session_manager.get_session(session_id)
+        if not updated_session:
+            raise ValueError("Session update failed")
         filepath = ppt_service.create_presentation(updated_session)
         await link_history_to_session(
             session_uuid=session_id,
@@ -535,7 +536,7 @@ async def generate_presentation_sync(request: GenerateRequest, authorization: Op
         )
         
         # Update session
-        await session_manager.update_session(
+        updated_session = await session_manager.update_session(
             session_id=request.session_id,
             topic=request.topic,
             slides=slides,
@@ -556,7 +557,8 @@ async def generate_presentation_sync(request: GenerateRequest, authorization: Op
         )
         
         # Generate PPT file
-        updated_session = await session_manager.get_session(request.session_id)
+        if not updated_session:
+            raise HTTPException(status_code=404, detail="Session not found")
         filepath = ppt_service.create_presentation(updated_session)
         await link_history_to_session(
             session_uuid=request.session_id,
@@ -657,11 +659,6 @@ async def update_slide(request: UpdateSlideRequest, authorization: Optional[str]
         if not updated_slide:
             raise HTTPException(status_code=404, detail="Slide not found")
         
-        # Regenerate PPT file with updated slide
-        session = await session_manager.get_session(request.session_id)
-        if session:
-            ppt_service.create_presentation(session)
-        
         return UpdateSlideResponse(
             success=True,
             slide_number=request.slide_number,
@@ -692,11 +689,6 @@ async def rollback_slide(request: RollbackSlideRequest, authorization: Optional[
         
         if not slide:
             raise HTTPException(status_code=404, detail="Slide or version not found")
-        
-        # Regenerate PPT file
-        session = await session_manager.get_session(request.session_id)
-        if session:
-            ppt_service.create_presentation(session)
         
         return {
             "success": True,

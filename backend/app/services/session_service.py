@@ -146,25 +146,26 @@ class SessionManager:
         """
         db = await get_db_session()
         try:
-            db_session = await crud.get_session_by_uuid(db, session_id)
+            db_session = await crud.get_session_row_by_uuid(db, session_id)
             if not db_session:
                 return None
-            
-            # Update session fields
-            await crud.update_session(
-                db=db,
-                session_id=session_id,
-                topic=topic,
-                template=template.value if template else None,
-                tone=tone.value if tone else None,
-                context_memory=context_memory
-            )
-            
+
+            # Update session fields in-memory; commit once at the end.
+            if topic is not None:
+                db_session.topic = topic
+            if template is not None:
+                db_session.template = template.value
+            if tone is not None:
+                db_session.tone = tone.value
+            if context_memory is not None:
+                db_session.context_memory = context_memory
+            db_session.updated_at = datetime.utcnow()
+
             # Handle slides update
             if slides is not None:
-                # Clear existing slides and recreate
-                await crud.delete_slides_for_session(db, db_session.id)
-                
+                # Clear existing slides and recreate in a single transaction.
+                await crud.delete_slides_for_session(db, db_session.id, commit=False)
+
                 for slide in slides:
                     current_version = slide.versions[slide.current_version]
                     await crud.create_slide(
@@ -174,9 +175,12 @@ class SessionManager:
                         title=current_version.title,
                         content=current_version.content,
                         speaker_notes=current_version.speaker_notes,
-                        instruction="Initial generation"
+                        instruction="Initial generation",
+                        commit=False,
                     )
-            
+
+            await db.commit()
+
             # Refresh and convert
             db_session = await crud.get_session_by_uuid(db, session_id)
             session = self._db_session_to_schema(db_session)
@@ -197,26 +201,36 @@ class SessionManager:
         """
         db = await get_db_session()
         try:
-            db_session = await crud.get_session_by_uuid(db, session_id)
-            if not db_session:
+            session_db_id = await crud.get_session_db_id_by_uuid(db, session_id)
+            if session_db_id is None:
                 return None
             
             await crud.add_chat_message(
                 db=db,
-                session_db_id=db_session.id,
+                session_db_id=session_db_id,
                 role=role,
                 content=content,
                 related_slide=related_slide
             )
-            
-            # Get chat count and trim if needed
-            messages = await crud.get_chat_history(db, db_session.id, limit=100)
-            if len(messages) > 50:
-                # We only keep the latest 50 in the returned data
-                pass  # The limit already handles this
-            
-            # Refresh and convert
+
+            # Keep cache hot without full DB reload for this write-heavy path.
+            cached = self.sessions.get(session_id)
+            if cached:
+                cached.chat_history.append(
+                    ChatMessage(
+                        role=role,
+                        content=content,
+                        timestamp=datetime.utcnow(),
+                        related_slide=related_slide,
+                    )
+                )
+                if len(cached.chat_history) > 50:
+                    cached.chat_history = cached.chat_history[-50:]
+                return cached
+
             db_session = await crud.get_session_by_uuid(db, session_id)
+            if not db_session:
+                return None
             session = self._db_session_to_schema(db_session)
             self.sessions[session_id] = session
             return session

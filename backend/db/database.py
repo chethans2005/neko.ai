@@ -68,6 +68,13 @@ async def init_db():
         from db import models  # noqa
         await conn.run_sync(Base.metadata.create_all)
 
+        # Add high-impact indexes used by ownership checks and hot query paths.
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_slides_session_number ON slides (session_id, slide_number)"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_slide_versions_slide_version ON slide_versions (slide_id, version_number)"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_chat_messages_session_created ON chat_messages (session_id, created_at)"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_history_user_created ON presentation_history (user_id, created_at)"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_email_otp_lookup ON email_otp (email, purpose, used_at, created_at)"))
+
         if IS_SQLITE:
             # Lightweight schema migration for existing SQLite databases
             result = await conn.execute(text("PRAGMA table_info(users)"))

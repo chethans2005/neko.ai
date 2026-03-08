@@ -60,6 +60,22 @@ async def get_session_by_uuid(db: AsyncSession, session_id: str) -> Optional[Ses
     return result.scalar_one_or_none()
 
 
+async def get_session_row_by_uuid(db: AsyncSession, session_id: str) -> Optional[SessionModel]:
+    """Get a session row by UUID without eager-loading relations."""
+    result = await db.execute(
+        select(SessionModel).where(SessionModel.session_id == session_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def get_session_db_id_by_uuid(db: AsyncSession, session_uuid: str) -> Optional[int]:
+    """Get internal database session id from public session UUID."""
+    result = await db.execute(
+        select(SessionModel.id).where(SessionModel.session_id == session_uuid)
+    )
+    return result.scalar_one_or_none()
+
+
 async def get_session_by_id(db: AsyncSession, id: int) -> Optional[SessionModel]:
     """Get a session by its database ID."""
     result = await db.execute(
@@ -82,7 +98,7 @@ async def update_session(
     context_memory: Optional[str] = None
 ) -> Optional[SessionModel]:
     """Update session fields."""
-    session = await get_session_by_uuid(db, session_id)
+    session = await get_session_row_by_uuid(db, session_id)
     if not session:
         return None
     
@@ -104,7 +120,7 @@ async def update_session(
 
 async def delete_session(db: AsyncSession, session_id: str) -> bool:
     """Delete a session and all associated data."""
-    session = await get_session_by_uuid(db, session_id)
+    session = await get_session_row_by_uuid(db, session_id)
     if not session:
         return False
     
@@ -130,7 +146,8 @@ async def create_slide(
     title: str,
     content: List[str],
     speaker_notes: Optional[str] = None,
-    instruction: str = "Initial generation"
+    instruction: str = "Initial generation",
+    commit: bool = True,
 ) -> SlideModel:
     """Create a new slide with initial version."""
     # Create slide
@@ -159,20 +176,21 @@ async def create_slide(
     )
     db.add(version)
     
-    await db.commit()
-    await db.refresh(slide)
+    if commit:
+        await db.commit()
+        await db.refresh(slide)
     return slide
 
 
 async def get_slide(db: AsyncSession, session_id: str, slide_number: int) -> Optional[SlideModel]:
     """Get a slide by session UUID and slide number."""
-    session = await get_session_by_uuid(db, session_id)
-    if not session:
+    session_db_id = await get_session_db_id_by_uuid(db, session_id)
+    if session_db_id is None:
         return None
     
     result = await db.execute(
         select(SlideModel)
-        .where(SlideModel.session_id == session.id)
+        .where(SlideModel.session_id == session_db_id)
         .where(SlideModel.slide_number == slide_number)
         .options(selectinload(SlideModel.versions))
     )
@@ -242,12 +260,13 @@ async def rollback_slide_version(
     return slide
 
 
-async def delete_slides_for_session(db: AsyncSession, session_db_id: int) -> None:
+async def delete_slides_for_session(db: AsyncSession, session_db_id: int, commit: bool = True) -> None:
     """Delete all slides for a session (used before regenerating)."""
     await db.execute(
         delete(SlideModel).where(SlideModel.session_id == session_db_id)
     )
-    await db.commit()
+    if commit:
+        await db.commit()
 
 
 # =============================================================================
@@ -361,6 +380,20 @@ async def increment_user_requests(db: AsyncSession, user: UserModel, amount: int
     await db.commit()
     await db.refresh(user)
     return user
+
+
+async def increment_user_requests_by_id(db: AsyncSession, user_db_id: int, amount: int = 1) -> None:
+    """Increment generated slide count without loading the full user model."""
+    increment_by = max(0, amount)
+    await db.execute(
+        update(UserModel)
+        .where(UserModel.id == user_db_id)
+        .values(
+            requests_generated=UserModel.requests_generated + increment_by,
+            updated_at=datetime.utcnow(),
+        )
+    )
+    await db.commit()
 
 
 async def upsert_pending_signup(
@@ -478,12 +511,16 @@ async def map_session_to_user(db: AsyncSession, user_db_id: int, session_uuid: s
     return mapping
 
 
-async def get_session_user_map(db: AsyncSession, session_uuid: str) -> Optional[UserSessionMapModel]:
-    result = await db.execute(
-        select(UserSessionMapModel)
-        .where(UserSessionMapModel.session_uuid == session_uuid)
-        .options(selectinload(UserSessionMapModel.user))
-    )
+async def get_session_user_map(
+    db: AsyncSession,
+    session_uuid: str,
+    include_user: bool = False,
+) -> Optional[UserSessionMapModel]:
+    query = select(UserSessionMapModel).where(UserSessionMapModel.session_uuid == session_uuid)
+    if include_user:
+        query = query.options(selectinload(UserSessionMapModel.user))
+
+    result = await db.execute(query)
     return result.scalar_one_or_none()
 
 
