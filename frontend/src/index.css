@@ -1026,29 +1026,30 @@ body {
   gap: 1.25rem;
   height: calc(100vh - 126px);
   overflow: hidden;
-  align-items: stretch;
+  align-items: flex-start;
 }
 
 .sidebar {
   width: 390px;
   display: flex;
-  align-items: stretch;
-  max-height: 100%;
-  overflow-y: auto;
+  align-items: flex-start;
+  align-self: flex-start;
+  max-height: none;
+  overflow: visible;
   padding-right: 6px;
 }
 
 .config-panel {
   display: flex;
   flex-direction: column;
-  flex: 1;
-  height: 100%;
-  max-height: 100%;
+  flex: 0 0 auto;
+  height: auto;
+  max-height: calc(100vh - 170px);
 }
 
 .config-panel .panel-content {
   overflow-y: auto;
-  max-height: calc(100vh - 210px);
+  max-height: calc(100vh);
   scrollbar-width: thin;
   scrollbar-color: rgba(96, 165, 250, 0.45) transparent;
 }
@@ -1165,6 +1166,7 @@ body {
   display: flex;
   flex-direction: column;
   flex: 1;
+  align-self: stretch;
   min-width: 0;
   max-height: 100%;
   height: 100%;
@@ -1272,6 +1274,15 @@ body {
 
 .auth-card {
   width: min(620px, 100%);
+}
+
+.auth-close-btn {
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+  min-width: 34px;
+  padding: 0;
+  border-radius: 999px;
 }
 
 .auth-content {

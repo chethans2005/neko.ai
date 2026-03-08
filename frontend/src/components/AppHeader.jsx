@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Download, History, Info } from 'lucide-react'
 
 function AppHeader({
@@ -13,6 +14,12 @@ function AppHeader({
   handleDownload,
   handleNewPresentation,
 }) {
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
+
+  useEffect(() => {
+    setAvatarLoadFailed(false)
+  }, [user?.avatar_url])
+
   return (
     <header className="header">
       <div className="header-left">
@@ -45,8 +52,14 @@ function AppHeader({
                 <span>History</span>
               </button>
               <button className="btn btn-secondary profile-btn" onClick={() => setShowProfileMenu((v) => !v)} title="Open profile menu">
-                {user.avatar_url ? (
-                  <img src={user.avatar_url} alt={user.name} className="profile-avatar-image" />
+                {user.avatar_url && !avatarLoadFailed ? (
+                  <img
+                    src={user.avatar_url}
+                    alt={user.name}
+                    className="profile-avatar-image"
+                    referrerPolicy="no-referrer"
+                    onError={() => setAvatarLoadFailed(true)}
+                  />
                 ) : (
                   <span className="profile-avatar">{(user.name || 'U').slice(0, 1).toUpperCase()}</span>
                 )}

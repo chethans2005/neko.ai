@@ -1,3 +1,5 @@
+import { X } from 'lucide-react'
+
 function AuthModal({
   show,
   onClose,
@@ -27,12 +29,13 @@ function AuthModal({
                 : 'Welcome back'}
             </h2>
             <button
-              className="btn btn-sm btn-secondary"
+              className="btn btn-danger btn-icon auth-close-btn"
               onClick={onClose}
               disabled={isAuthLoading}
               title="Close"
+              aria-label="Close"
             >
-              Close
+              <X size={14} aria-hidden="true" />
             </button>
           </div>
           <div className="panel-content auth-content">
