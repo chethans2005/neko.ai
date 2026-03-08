@@ -48,6 +48,7 @@ function App() {
   const [alerts, setAlerts] = useState([]);
   const [editingSlide, setEditingSlide] = useState(null);
   const [isUpdatingSlide, setIsUpdatingSlide] = useState(false);
+  const [updatingSlideNumber, setUpdatingSlideNumber] = useState(null);
   const [isSwitchingVersion, setIsSwitchingVersion] = useState(false);
 
   // Auth + profile state
@@ -420,7 +421,7 @@ function App() {
     if (!sessionId) return;
 
     setIsUpdatingSlide(true);
-    setEditingSlide(null);
+    setUpdatingSlideNumber(slideNumber);
 
     try {
       const response = await updateSlide(sessionId, slideNumber, instruction);
@@ -433,11 +434,13 @@ function App() {
       );
 
       showMessage('success', `Slide ${slideNumber} updated successfully!`);
+      setEditingSlide(null);
 
     } catch (err) {
       showMessage('error', err.message || 'Failed to update slide');
     } finally {
       setIsUpdatingSlide(false);
+      setUpdatingSlideNumber(null);
     }
   };
 
@@ -619,8 +622,9 @@ function App() {
                     key={slide.slide_number}
                     slide={slide}
                     onEdit={() => setEditingSlide(slide.slide_number)}
-                    onOpenHistory={() => setEditingSlide(slide.slide_number)}
-                    isUpdating={isUpdatingSlide}
+                    onSelectVersion={(versionIndex) => handleSelectSlideVersion(slide.slide_number, versionIndex)}
+                    isUpdating={isUpdatingSlide && updatingSlideNumber === slide.slide_number}
+                    isSwitchingVersion={isSwitchingVersion}
                   />
                 ))}
               </>
@@ -635,7 +639,7 @@ function App() {
               onSubmit={(instruction) => handleUpdateSlide(editingSlide, instruction)}
               onSelectVersion={(versionIndex) => handleSelectSlideVersion(editingSlide, versionIndex)}
               onCancel={() => setEditingSlide(null)}
-              isLoading={isUpdatingSlide || isSwitchingVersion}
+              isLoading={isSwitchingVersion || (isUpdatingSlide && updatingSlideNumber === editingSlide)}
             />
           )}
         </section>

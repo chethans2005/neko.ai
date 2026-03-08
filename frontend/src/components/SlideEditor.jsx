@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { PencilLine } from 'lucide-react';
+import { PencilLine, Sparkles, X } from 'lucide-react';
 
 /**
  * SlideEditor Component
@@ -36,88 +36,80 @@ function SlideEditor({ slideNumber, slide, onSubmit, onSelectVersion, onCancel, 
     }
   };
 
+  const totalVersions = slide?.versions?.length || 0;
+
   return (
-    <div className="chat-input-container" style={{ borderTop: '2px solid var(--primary)' }}>
-      <div style={{ marginBottom: 'var(--space-md)' }}>
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          marginBottom: 'var(--space-sm)'
-        }}>
-          <h4 style={{ margin: 0, color: 'var(--primary)' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-              <PencilLine size={14} aria-hidden="true" />
-              <span>Editing Slide {slideNumber}: {currentVersion?.title}</span>
+    <section className="slide-edit-shell" aria-live="polite">
+      <div className="slide-edit-header">
+        <div>
+          <p className="slide-edit-kicker">Slide Workshop</p>
+          <h4 className="slide-edit-title">
+            <span className="slide-edit-title-icon" aria-hidden="true">
+              <PencilLine size={14} />
             </span>
+            <span>Editing Slide {slideNumber}: {currentVersion?.title}</span>
           </h4>
-          <button 
-            className="btn btn-secondary btn-sm"
+        </div>
+        <div className="slide-edit-controls">
+          {totalVersions > 0 && (
+            <div className="slide-version-tabs" role="tablist" aria-label={`Slide ${slideNumber} versions`}>
+              {slide.versions.map((_, idx) => {
+                const isActive = idx === slide.current_version;
+                return (
+                  <button
+                    key={`${slideNumber}-v-${idx}`}
+                    type="button"
+                    role="tab"
+                    className={`slide-version-tab ${isActive ? 'active' : ''}`}
+                    aria-selected={isActive}
+                    onClick={() => handleVersionSelect(idx)}
+                    disabled={isLoading}
+                    title={`Switch to version ${idx + 1}`}
+                  >
+                    {idx + 1}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <button
+            className="btn btn-danger btn-icon"
             onClick={onCancel}
             disabled={isLoading}
             title="Cancel editing"
+            aria-label="Cancel editing"
           >
-            Cancel
+            <X size={14} aria-hidden="true" />
           </button>
         </div>
-        
-        <p style={{ 
-          fontSize: '0.875rem', 
-          color: 'var(--text-secondary)',
-          margin: 0 
-        }}>
-          Describe how you want to change this slide using natural language.
-        </p>
-
-        {!!slide?.versions?.length && (
-          <div className="version-tabs" role="tablist" aria-label={`Slide ${slideNumber} versions`}>
-            {slide.versions.map((_, idx) => {
-              const isActive = idx === slide.current_version;
-              return (
-                <button
-                  key={`${slideNumber}-v-${idx}`}
-                  type="button"
-                  role="tab"
-                  className={`version-tab ${isActive ? 'active' : ''}`}
-                  aria-selected={isActive}
-                  onClick={() => handleVersionSelect(idx)}
-                  disabled={isLoading}
-                  title={`Switch to version ${idx + 1}`}
-                >
-                  V{idx + 1}
-                </button>
-              );
-            })}
-          </div>
-        )}
       </div>
 
+      <p className="slide-edit-subtext">
+        Describe exactly what to change on this slide. Active version: {slide?.current_version + 1 || 1} of {Math.max(1, totalVersions)}.
+      </p>
+
       {/* Quick Suggestions */}
-      <div style={{ 
-        display: 'flex', 
-        flexWrap: 'wrap', 
-        gap: 'var(--space-xs)',
-        marginBottom: 'var(--space-md)' 
-      }}>
+      <div className="slide-edit-suggestions">
         {suggestions.map((suggestion) => (
           <button
             key={suggestion}
-            className="btn btn-secondary btn-sm"
+            className="slide-suggestion"
             onClick={() => setInstruction(suggestion)}
             disabled={isLoading}
-            style={{ fontSize: '0.7rem' }}
             title={`Use suggestion: ${suggestion}`}
           >
+            <Sparkles size={12} aria-hidden="true" />
             {suggestion}
           </button>
         ))}
       </div>
 
       {/* Input Form */}
-      <form className="chat-input-wrapper" onSubmit={handleSubmit}>
+      <form className="slide-edit-form" onSubmit={handleSubmit}>
         <input
           type="text"
-          className="chat-input"
+          className="chat-input slide-edit-input"
           value={instruction}
           onChange={(e) => setInstruction(e.target.value)}
           placeholder="E.g., 'Add more statistics' or 'Make the title more catchy'"
@@ -140,7 +132,7 @@ function SlideEditor({ slideNumber, slide, onSubmit, onSelectVersion, onCancel, 
           )}
         </button>
       </form>
-    </div>
+    </section>
   );
 }
 

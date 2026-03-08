@@ -504,7 +504,47 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 0.6rem;
   margin-bottom: var(--space-md);
+}
+
+.slide-card-version-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(125, 211, 252, 0.25);
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.slide-card-version-tab {
+  min-width: 28px;
+  height: 24px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: #cbd5e1;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.slide-card-version-tab:hover:not(:disabled) {
+  border-color: rgba(125, 211, 252, 0.6);
+  color: #f8fafc;
+}
+
+.slide-card-version-tab.active {
+  background: linear-gradient(95deg, #3b82f6 0%, #22d3ee 100%);
+  border-color: rgba(125, 211, 252, 0.9);
+  color: #fff;
+}
+
+.slide-card-version-tab:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .slide-number {
@@ -585,6 +625,26 @@ body {
   
   .chat-input-wrapper .btn {
     width: 100%;
+  }
+
+  .slide-edit-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .slide-edit-controls {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .slide-version-tabs {
+    max-width: none;
+    flex: 1;
+  }
+
+  .slide-edit-form {
+    flex-direction: column;
+    gap: var(--space-sm);
   }
 }
 
@@ -803,6 +863,147 @@ body {
   background: linear-gradient(95deg, #3b82f6 0%, #22d3ee 100%);
   border-color: rgba(125, 211, 252, 0.9);
   color: #ffffff;
+}
+
+/* Slide Editor (enhanced) */
+.slide-edit-shell {
+  margin-top: auto;
+  padding: 1rem;
+  border-top: 1px solid rgba(125, 211, 252, 0.28);
+  background:
+    radial-gradient(900px 120px at 10% -10%, rgba(56, 189, 248, 0.16), transparent 60%),
+    linear-gradient(180deg, rgba(9, 15, 27, 0.96), rgba(6, 10, 19, 0.98));
+}
+
+.slide-edit-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.slide-edit-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.slide-edit-kicker {
+  margin: 0;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #7dd3fc;
+}
+
+.slide-edit-title {
+  margin: 0.2rem 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 1rem;
+  color: #dbeafe;
+}
+
+.slide-edit-title-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(56, 189, 248, 0.22);
+  color: #e0f2fe;
+}
+
+.slide-edit-subtext {
+  margin: 0.45rem 0 0.8rem;
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+}
+
+.slide-version-tabs {
+  max-width: min(38vw, 320px);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(125, 211, 252, 0.25);
+  background: rgba(15, 23, 42, 0.66);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.slide-version-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.slide-version-tab {
+  flex: 0 0 auto;
+  min-width: 34px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: #cbd5e1;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.slide-version-tab:hover:not(:disabled) {
+  border-color: rgba(125, 211, 252, 0.55);
+  color: #f8fafc;
+}
+
+.slide-version-tab.active {
+  background: linear-gradient(95deg, #3b82f6 0%, #22d3ee 100%);
+  border-color: rgba(125, 211, 252, 0.9);
+  color: #ffffff;
+}
+
+.slide-edit-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.7rem 0;
+}
+
+.slide-suggestion {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 30px;
+  padding: 0 0.7rem;
+  border: 1px solid rgba(125, 211, 252, 0.3);
+  border-radius: 999px;
+  background: rgba(15, 24, 39, 0.9);
+  color: #dbeafe;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.slide-suggestion:hover:not(:disabled) {
+  border-color: rgba(125, 211, 252, 0.7);
+  background: rgba(30, 64, 175, 0.24);
+}
+
+.slide-suggestion:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.slide-edit-form {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.slide-edit-input {
+  min-height: 44px;
 }
 
 .version-item {

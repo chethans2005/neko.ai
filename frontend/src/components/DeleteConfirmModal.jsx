@@ -1,3 +1,5 @@
+import { X } from 'lucide-react'
+
 function DeleteConfirmModal({
   open,
   onCancel,
@@ -14,8 +16,8 @@ function DeleteConfirmModal({
         <div className="panel-content confirm-content">
           <p>This presentation will be removed from your history.</p>
           <div className="confirm-actions">
-            <button className="btn btn-secondary" onClick={onCancel} title="Cancel">
-              Cancel
+            <button className="btn btn-danger btn-icon" onClick={onCancel} title="Cancel" aria-label="Cancel">
+              <X size={14} aria-hidden="true" />
             </button>
             <button className="btn btn-danger" onClick={onConfirm} title="Confirm delete">
               Delete
