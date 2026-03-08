@@ -366,6 +366,43 @@ class SessionManager:
         finally:
             await db.close()
 
+    async def update_session_metadata(
+        self,
+        session_id: str,
+        topic: Optional[str] = None,
+        template: Optional[TemplateType] = None,
+        tone: Optional[ToneType] = None,
+        context_memory: Optional[str] = None,
+    ) -> bool:
+        """Update metadata fields only (no slide/chat relation load)."""
+        db = await get_db_session()
+        try:
+            updated = await crud.update_session_fields_only(
+                db=db,
+                session_id=session_id,
+                topic=topic,
+                template=template.value if template else None,
+                tone=tone.value if tone else None,
+                context_memory=context_memory,
+            )
+            if not updated:
+                return False
+
+            cached = self.sessions.get(session_id)
+            if cached:
+                if topic is not None:
+                    cached.topic = topic
+                if template is not None:
+                    cached.template = template
+                if tone is not None:
+                    cached.tone = tone
+                if context_memory is not None:
+                    cached.context_memory = context_memory
+                cached.last_updated = datetime.utcnow()
+            return True
+        finally:
+            await db.close()
+
 
 # Global session manager instance
 session_manager = SessionManager()

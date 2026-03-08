@@ -51,6 +51,7 @@ async def get_session_by_uuid(db: AsyncSession, session_id: str) -> Optional[Ses
     """Get a session by its UUID."""
     result = await db.execute(
         select(SessionModel)
+        .execution_options(populate_existing=True)
         .where(SessionModel.session_id == session_id)
         .options(
             selectinload(SessionModel.slides).selectinload(SlideModel.versions),
@@ -80,6 +81,7 @@ async def get_session_by_id(db: AsyncSession, id: int) -> Optional[SessionModel]
     """Get a session by its database ID."""
     result = await db.execute(
         select(SessionModel)
+        .execution_options(populate_existing=True)
         .where(SessionModel.id == id)
         .options(
             selectinload(SessionModel.slides).selectinload(SlideModel.versions),
@@ -116,6 +118,34 @@ async def update_session(
     await db.commit()
     await db.refresh(session)
     return session
+
+
+async def update_session_fields_only(
+    db: AsyncSession,
+    session_id: str,
+    topic: Optional[str] = None,
+    template: Optional[str] = None,
+    tone: Optional[str] = None,
+    context_memory: Optional[str] = None,
+) -> bool:
+    """Update session metadata without loading relations."""
+    values = {"updated_at": datetime.utcnow()}
+    if topic is not None:
+        values["topic"] = topic
+    if template is not None:
+        values["template"] = template
+    if tone is not None:
+        values["tone"] = tone
+    if context_memory is not None:
+        values["context_memory"] = context_memory
+
+    result = await db.execute(
+        update(SessionModel)
+        .where(SessionModel.session_id == session_id)
+        .values(**values)
+    )
+    await db.commit()
+    return bool(result.rowcount)
 
 
 async def delete_session(db: AsyncSession, session_id: str) -> bool:
@@ -358,6 +388,22 @@ async def get_user_by_email(db: AsyncSession, email: str) -> Optional[UserModel]
 
 async def get_user_by_uuid(db: AsyncSession, user_id: str) -> Optional[UserModel]:
     result = await db.execute(select(UserModel).where(UserModel.user_id == user_id))
+    return result.scalar_one_or_none()
+
+
+async def get_user_by_uuid_with_session_access(
+    db: AsyncSession,
+    user_uuid: str,
+    session_uuid: str,
+) -> Optional[UserModel]:
+    """Get user only if they own the specified session."""
+    result = await db.execute(
+        select(UserModel)
+        .join(UserSessionMapModel, UserSessionMapModel.user_id == UserModel.id)
+        .where(UserModel.user_id == user_uuid)
+        .where(UserSessionMapModel.session_uuid == session_uuid)
+        .limit(1)
+    )
     return result.scalar_one_or_none()
 
 

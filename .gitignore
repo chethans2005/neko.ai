@@ -20,6 +20,10 @@ node_modules/
 dist/
 build/
 *.sqlite3
+backend/storage/*.db
+backend/storage/*.sqlite
+backend/storage/*.sqlite3
+backend/storage/ai_ppt.db
 backend/storage/outputs/
 backend/storage/sessions/
 client_secret_*.json

@@ -80,6 +80,18 @@ DISPOSABLE_EMAIL_API_KEY=
 
 # Dev only: return OTP in API response if SMTP is not configured
 AUTH_DEBUG_RETURN_OTP=false
+
+# API slow-request logging threshold (ms)
+API_SLOW_LOG_MS=600
+
+# Neon/Postgres pool tuning (optional)
+DB_POOL_SIZE=10
+DB_MAX_OVERFLOW=20
+DB_POOL_TIMEOUT=15
+DB_CONNECT_TIMEOUT=10
+DB_COMMAND_TIMEOUT=30
+# For Neon, this defaults to 0 internally unless overridden
+DB_STATEMENT_CACHE_SIZE=0
 ```
 
 Run backend:
@@ -134,6 +146,14 @@ Origin mismatch is strict.
 
 - API routes are available under `/api` after backend startup.
 - For local verification, use `/health` and `/api/ai/status`.
+- Responses include `X-Process-Time-Ms` for server-side processing time.
+
+## Performance Notes (Neon)
+
+- Session-scoped endpoints now validate auth + session ownership in a single DB query.
+- Template-only updates use a metadata-only DB update path (avoid full slide/chat reload).
+- PPT rendering uses a content fingerprint cache to skip regenerating unchanged decks.
+- DB indexes are auto-created at startup for hot paths (`slides`, `slide_versions`, `chat_messages`, `presentation_history`, `email_otp`).
 
 ## Testing & Validation
 
@@ -162,6 +182,15 @@ curl http://127.0.0.1:8000/health
 # provider status
 curl http://127.0.0.1:8000/api/ai/status
 ```
+
+### Performance check
+
+```bash
+cd backend
+python scripts/perf_check.py
+```
+
+This prints `PERF_CHECK_RESULTS` with API timings, DB timings, and render cache hit/miss info.
 
 ## Troubleshooting
 

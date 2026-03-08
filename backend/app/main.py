@@ -2,10 +2,12 @@
 AI Presentation Generator - Main FastAPI Application
 """
 import asyncio
+import time
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 import os
 import sys
 from dotenv import load_dotenv
@@ -71,6 +73,23 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+
+class RequestTimingMiddleware(BaseHTTPMiddleware):
+    """Attach request latency header and log slow requests."""
+
+    def __init__(self, app, slow_ms: int = 600):
+        super().__init__(app)
+        self.slow_ms = slow_ms
+
+    async def dispatch(self, request, call_next):
+        start = time.perf_counter()
+        response = await call_next(request)
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        response.headers["X-Process-Time-Ms"] = f"{elapsed_ms:.2f}"
+        if elapsed_ms >= self.slow_ms:
+            print(f"[slow-api] {request.method} {request.url.path} took {elapsed_ms:.2f} ms")
+        return response
+
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
@@ -79,6 +98,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RequestTimingMiddleware, slow_ms=int(os.getenv("API_SLOW_LOG_MS", "600")))
 
 # Include API routes
 app.include_router(router, prefix="/api")

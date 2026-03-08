@@ -21,6 +21,7 @@ os.makedirs(DATABASE_DIR, exist_ok=True)
 # Database connection string (can be overridden in environment)
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite+aiosqlite:///{DATABASE_PATH}")
 IS_SQLITE = DATABASE_URL.startswith("sqlite")
+IS_NEON = (not IS_SQLITE) and ("neon.tech" in DATABASE_URL or os.getenv("DB_PROVIDER", "").lower() == "neon")
 
 # Fix asyncpg SSL parameter compatibility with Neon/Postgres
 if not IS_SQLITE and "sslmode=" in DATABASE_URL:
@@ -44,11 +45,27 @@ if IS_SQLITE:
         poolclass=StaticPool,  # Required for SQLite with async
     )
 else:
+    pool_size = int(os.getenv("DB_POOL_SIZE", "10"))
+    max_overflow = int(os.getenv("DB_MAX_OVERFLOW", "20"))
+    pool_timeout = int(os.getenv("DB_POOL_TIMEOUT", "15"))
+    connect_timeout = int(os.getenv("DB_CONNECT_TIMEOUT", "10"))
+    command_timeout = int(os.getenv("DB_COMMAND_TIMEOUT", "30"))
+    statement_cache_size = int(os.getenv("DB_STATEMENT_CACHE_SIZE", "0" if IS_NEON else "100"))
+
     engine = create_async_engine(
         DATABASE_URL,
         echo=False,  # Set to True for SQL query logging
         pool_pre_ping=True,
         pool_recycle=300,
+        pool_size=pool_size,
+        max_overflow=max_overflow,
+        pool_timeout=pool_timeout,
+        pool_use_lifo=True,
+        connect_args={
+            "timeout": connect_timeout,
+            "command_timeout": command_timeout,
+            "statement_cache_size": statement_cache_size,
+        },
     )
 
 # Async session factory
