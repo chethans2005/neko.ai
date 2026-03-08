@@ -5,7 +5,7 @@ import { History, Pencil } from 'lucide-react';
  * 
  * Displays a preview card for a single slide.
  */
-function SlidePreview({ slide, onEdit, isUpdating = false }) {
+function SlidePreview({ slide, onEdit, onOpenHistory, isUpdating = false }) {
   // Get the current version of the slide
   const currentVersion = slide.versions[slide.current_version];
   const hasMultipleVersions = slide.versions.length > 1;
@@ -64,7 +64,7 @@ function SlidePreview({ slide, onEdit, isUpdating = false }) {
         {hasMultipleVersions && (
           <button
             className="btn btn-secondary btn-sm"
-            onClick={() => {/* TODO: Show version history modal */}}
+            onClick={onOpenHistory || onEdit}
             disabled={isUpdating}
             title="Open slide history"
           >

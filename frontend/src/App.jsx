@@ -14,6 +14,7 @@ import {
   pollJobStatus,
   getPreview,
   updateSlide,
+  rollbackSlide,
   signupStart,
   signupVerify,
   login,
@@ -47,6 +48,7 @@ function App() {
   const [alerts, setAlerts] = useState([]);
   const [editingSlide, setEditingSlide] = useState(null);
   const [isUpdatingSlide, setIsUpdatingSlide] = useState(false);
+  const [isSwitchingVersion, setIsSwitchingVersion] = useState(false);
 
   // Auth + profile state
   const [user, setUser] = useState(null);
@@ -439,6 +441,29 @@ function App() {
     }
   };
 
+  const handleSelectSlideVersion = async (slideNumber, versionIndex) => {
+    if (!sessionId || isSwitchingVersion) return;
+
+    setIsSwitchingVersion(true);
+    try {
+      const response = await rollbackSlide(sessionId, slideNumber, versionIndex);
+      setSlides((prevSlides) =>
+        prevSlides.map((slide) => {
+          if (slide.slide_number !== slideNumber) return slide;
+          return {
+            ...slide,
+            current_version: response.current_version,
+          };
+        })
+      );
+      showMessage('success', `Switched to version ${versionIndex + 1} on slide ${slideNumber}`);
+    } catch (err) {
+      showMessage('error', err.response?.data?.detail || err.message || 'Failed to switch slide version');
+    } finally {
+      setIsSwitchingVersion(false);
+    }
+  };
+
   // Download presentation
   const handleDownload = () => {
     if (!sessionId) return;
@@ -594,6 +619,7 @@ function App() {
                     key={slide.slide_number}
                     slide={slide}
                     onEdit={() => setEditingSlide(slide.slide_number)}
+                    onOpenHistory={() => setEditingSlide(slide.slide_number)}
                     isUpdating={isUpdatingSlide}
                   />
                 ))}
@@ -607,8 +633,9 @@ function App() {
               slideNumber={editingSlide}
               slide={slides.find(s => s.slide_number === editingSlide)}
               onSubmit={(instruction) => handleUpdateSlide(editingSlide, instruction)}
+              onSelectVersion={(versionIndex) => handleSelectSlideVersion(editingSlide, versionIndex)}
               onCancel={() => setEditingSlide(null)}
-              isLoading={isUpdatingSlide}
+              isLoading={isUpdatingSlide || isSwitchingVersion}
             />
           )}
         </section>

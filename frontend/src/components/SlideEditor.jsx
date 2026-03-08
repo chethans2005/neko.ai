@@ -6,7 +6,7 @@ import { PencilLine } from 'lucide-react';
  * 
  * Modal/panel for editing a specific slide using natural language.
  */
-function SlideEditor({ slideNumber, slide, onSubmit, onCancel, isLoading = false }) {
+function SlideEditor({ slideNumber, slide, onSubmit, onSelectVersion, onCancel, isLoading = false }) {
   const [instruction, setInstruction] = useState('');
 
   const currentVersion = slide?.versions[slide.current_version];
@@ -27,6 +27,14 @@ function SlideEditor({ slideNumber, slide, onSubmit, onCancel, isLoading = false
     'Add an example',
     'Focus on benefits',
   ];
+
+  const handleVersionSelect = (versionIndex) => {
+    if (isLoading) return;
+    if (versionIndex === slide?.current_version) return;
+    if (typeof onSelectVersion === 'function') {
+      onSelectVersion(versionIndex);
+    }
+  };
 
   return (
     <div className="chat-input-container" style={{ borderTop: '2px solid var(--primary)' }}>
@@ -60,6 +68,28 @@ function SlideEditor({ slideNumber, slide, onSubmit, onCancel, isLoading = false
         }}>
           Describe how you want to change this slide using natural language.
         </p>
+
+        {!!slide?.versions?.length && (
+          <div className="version-tabs" role="tablist" aria-label={`Slide ${slideNumber} versions`}>
+            {slide.versions.map((_, idx) => {
+              const isActive = idx === slide.current_version;
+              return (
+                <button
+                  key={`${slideNumber}-v-${idx}`}
+                  type="button"
+                  role="tab"
+                  className={`version-tab ${isActive ? 'active' : ''}`}
+                  aria-selected={isActive}
+                  onClick={() => handleVersionSelect(idx)}
+                  disabled={isLoading}
+                  title={`Switch to version ${idx + 1}`}
+                >
+                  V{idx + 1}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Quick Suggestions */}
