@@ -4,8 +4,6 @@ This module keeps the existing public surface but delegates presentation
 rendering to `ppt_renderer` so styling is controlled centrally.
 """
 import os
-import json
-import hashlib
 from typing import Optional
 from datetime import datetime
 
@@ -23,19 +21,17 @@ class PPTService:
     def _ensure_output_dir(self):
         os.makedirs(self.OUTPUT_DIR, exist_ok=True)
 
-    def _build_fingerprint(self, session: SessionData, slides: list[dict]) -> str:
-        payload = {
-            "topic": session.topic,
-            "template": session.template.value if hasattr(session.template, "value") else session.template,
-            "slides": slides,
-        }
-        normalized = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-        return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
-
     def create_presentation(self, session: SessionData, filename: Optional[str] = None) -> str:
         """Create a presentation file from session data using the renderer."""
         cache_key = session.session_id
+        session_stamp = str(getattr(session, "last_updated", ""))
         auto_filename = filename is None
+
+        # Fast path: if session content hasn't changed, reuse last rendered file.
+        if auto_filename:
+            cached = self._session_render_cache.get(cache_key)
+            if cached and cached.get("stamp") == session_stamp and os.path.exists(cached.get("path", "")):
+                return cached["path"]
 
         # Build simplified slide data objects that renderer expects
         slides = []
@@ -53,14 +49,6 @@ class PPTService:
                 'speaker_notes': current.speaker_notes,
             })
 
-        fingerprint = self._build_fingerprint(session, slides)
-
-        # Fast path: if rendered payload hasn't changed, reuse last generated file.
-        if auto_filename:
-            cached = self._session_render_cache.get(cache_key)
-            if cached and cached.get("fingerprint") == fingerprint and os.path.exists(cached.get("path", "")):
-                return cached["path"]
-
         prs = ppt_renderer.render(slides, theme_name=session.template.value if hasattr(session.template, 'value') else session.template, title=session.topic)
 
         # filename
@@ -75,7 +63,7 @@ class PPTService:
 
         if auto_filename:
             self._session_render_cache[cache_key] = {
-                "fingerprint": fingerprint,
+                "stamp": session_stamp,
                 "path": filepath,
             }
 

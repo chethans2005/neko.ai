@@ -48,7 +48,7 @@ from app.services.auth_service import (
     link_history_to_session,
 )
 from app.ai.router import ai_router
-from app.api.dependencies import require_user, require_user_for_session
+from app.api.dependencies import require_user, ensure_session_owned_by_user
 from db.database import get_db_session
 from db import crud
 
@@ -360,7 +360,8 @@ async def start_session(request: StartSessionRequest, authorization: Optional[st
 @router.get("/session/{session_id}")
 async def get_session(session_id: str, authorization: Optional[str] = Header(default=None)):
     """Get session details."""
-    await require_user_for_session(session_id, authorization)
+    user = await require_user(authorization)
+    await ensure_session_owned_by_user(session_id, user.id)
 
     session = await session_manager.get_session(session_id)
     if not session:
@@ -380,7 +381,8 @@ async def get_session(session_id: str, authorization: Optional[str] = Header(def
 @router.delete("/session/{session_id}")
 async def delete_session(session_id: str, authorization: Optional[str] = Header(default=None)):
     """Delete a session."""
-    await require_user_for_session(session_id, authorization)
+    user = await require_user(authorization)
+    await ensure_session_owned_by_user(session_id, user.id)
 
     deleted = await session_manager.delete_session(session_id)
     if not deleted:
@@ -469,13 +471,15 @@ async def generate_presentation(request: GenerateRequest, authorization: Optiona
     Queues a background job and returns immediately with a job_id.
     Poll /status/{job_id} to check progress.
     """
-    user = await require_user_for_session(request.session_id, authorization)
+    user = await require_user(authorization)
     projected_total_slides = (user.requests_generated or 0) + max(1, request.num_slides)
     if projected_total_slides > SLIDES_GENERATION_LIMIT:
         raise HTTPException(
             status_code=403,
             detail=f"Slide generation limit reached ({SLIDES_GENERATION_LIMIT} total slides).",
         )
+    await ensure_session_owned_by_user(request.session_id, user.id)
+
     session = await session_manager.get_session(request.session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -508,13 +512,15 @@ async def generate_presentation_sync(request: GenerateRequest, authorization: Op
     Waits for generation to complete before returning.
     Use for simpler integrations.
     """
-    user = await require_user_for_session(request.session_id, authorization)
+    user = await require_user(authorization)
     projected_total_slides = (user.requests_generated or 0) + max(1, request.num_slides)
     if projected_total_slides > SLIDES_GENERATION_LIMIT:
         raise HTTPException(
             status_code=403,
             detail=f"Slide generation limit reached ({SLIDES_GENERATION_LIMIT} total slides).",
         )
+    await ensure_session_owned_by_user(request.session_id, user.id)
+
     session = await session_manager.get_session(request.session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -608,7 +614,8 @@ async def preview_presentation(session_id: str, authorization: Optional[str] = H
     
     Returns all slides with their current content for display.
     """
-    await require_user_for_session(session_id, authorization)
+    user = await require_user(authorization)
+    await ensure_session_owned_by_user(session_id, user.id)
 
     session = await session_manager.get_session(session_id)
     if not session:
@@ -640,7 +647,8 @@ async def update_slide(request: UpdateSlideRequest, authorization: Optional[str]
     Only regenerates the specified slide, not the entire presentation.
     """
     try:
-        await require_user_for_session(request.session_id, authorization)
+        user = await require_user(authorization)
+        await ensure_session_owned_by_user(request.session_id, user.id)
 
         updated_slide = await slide_service.update_slide(
             session_id=request.session_id,
@@ -670,7 +678,8 @@ async def rollback_slide(request: RollbackSlideRequest, authorization: Optional[
     Rollback a slide to a previous version.
     """
     try:
-        await require_user_for_session(request.session_id, authorization)
+        user = await require_user(authorization)
+        await ensure_session_owned_by_user(request.session_id, user.id)
 
         slide = await slide_service.rollback_slide(
             session_id=request.session_id,
@@ -697,7 +706,8 @@ async def get_slide_history(session_id: str, slide_number: int, authorization: O
     """
     Get version history for a specific slide.
     """
-    await require_user_for_session(session_id, authorization)
+    user = await require_user(authorization)
+    await ensure_session_owned_by_user(session_id, user.id)
 
     session = await session_manager.get_session(session_id)
     if not session:
@@ -735,7 +745,8 @@ async def download_presentation(session_id: str, authorization: Optional[str] = 
     """
     Download the generated PowerPoint file.
     """
-    await require_user_for_session(session_id, authorization)
+    user = await require_user(authorization)
+    await ensure_session_owned_by_user(session_id, user.id)
 
     session = await session_manager.get_session(session_id)
     if not session:
@@ -778,14 +789,15 @@ async def update_session_template(session_id: str, template: TemplateType, autho
     """
     Update the template for a session.
     """
-    await require_user_for_session(session_id, authorization)
+    user = await require_user(authorization)
+    await ensure_session_owned_by_user(session_id, user.id)
 
-    updated = await session_manager.update_session_metadata(
+    session = await session_manager.update_session(
         session_id=session_id,
-        template=template,
+        template=template
     )
     
-    if not updated:
+    if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
     return {
@@ -816,7 +828,8 @@ async def get_chat_history(session_id: str, authorization: Optional[str] = Heade
     """
     Get chat history for a session.
     """
-    await require_user_for_session(session_id, authorization)
+    user = await require_user(authorization)
+    await ensure_session_owned_by_user(session_id, user.id)
 
     session = await session_manager.get_session(session_id)
     if not session:
