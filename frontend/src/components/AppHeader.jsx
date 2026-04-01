@@ -36,7 +36,7 @@ function AppHeader({
       <div className="header-actions">
         <a
           className="btn btn-secondary header-link-btn"
-          href="https://github.com/chethans2005"
+          href="https://my-portfolio-official-six.vercel.app/"
           target="_blank"
           rel="noreferrer"
           title="About Me"
