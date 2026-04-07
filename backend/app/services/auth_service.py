@@ -2,6 +2,7 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 import os
 import secrets
 import smtplib
@@ -11,6 +12,8 @@ from email.message import EmailMessage
 from typing import Optional, Tuple
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 from db.database import get_db_session
 from db import crud
@@ -187,6 +190,7 @@ async def send_signup_otp_email(to_email: str, name: str, otp_code: str) -> bool
     )
 
     if not SMTP_HOST or not SMTP_FROM_EMAIL:
+        logger.warning(f"SMTP not configured: SMTP_HOST={bool(SMTP_HOST)}, SMTP_FROM_EMAIL={bool(SMTP_FROM_EMAIL)}")
         return False
 
     message = EmailMessage()
@@ -196,14 +200,19 @@ async def send_signup_otp_email(to_email: str, name: str, otp_code: str) -> bool
     message.set_content(body)
 
     try:
+        logger.info(f"Attempting to send OTP email to {to_email} via {SMTP_HOST}:{SMTP_PORT}")
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as smtp:
             if SMTP_USE_TLS:
                 smtp.starttls()
+                logger.debug("TLS started")
             if SMTP_USER and SMTP_PASSWORD:
                 smtp.login(SMTP_USER, SMTP_PASSWORD)
+                logger.debug(f"SMTP authentication successful for {SMTP_USER}")
             smtp.send_message(message)
+            logger.info(f"OTP email sent successfully to {to_email}")
         return True
-    except Exception:
+    except Exception as e:
+        logger.error(f"Failed to send OTP email to {to_email}: {type(e).__name__}: {str(e)}")
         return False
 
 
