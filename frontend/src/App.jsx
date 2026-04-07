@@ -129,15 +129,16 @@ function App() {
   useEffect(() => {
     const completeGoogleRedirectAuth = async () => {
       const params = new URLSearchParams(window.location.search);
+      const redirectSource = params.get('source');
       const tokenFromRedirect = params.get('auth_token');
       const authErrorFromRedirect = params.get('error');
 
-      if (window.location.pathname !== '/auth/callback') {
+      if (redirectSource !== 'google') {
         return false;
       }
 
       if (authErrorFromRedirect) {
-        showMessage('error', decodeURIComponent(authErrorFromRedirect));
+        showMessage('error', authErrorFromRedirect);
         window.history.replaceState({}, '', '/');
         return true;
       }

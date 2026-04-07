@@ -254,12 +254,12 @@ async def login_google_callback(
 ):
     del g_csrf_token
 
-    callback_path = "/auth/callback"
+    callback_path = "/"
     try:
         token, _user = await authenticate_google_user(credential)
-        query = urlencode({"auth_token": token})
+        query = urlencode({"source": "google", "auth_token": token})
     except Exception as exc:
-        query = urlencode({"error": str(exc) or "Google login failed"})
+        query = urlencode({"source": "google", "error": str(exc) or "Google login failed"})
 
     return RedirectResponse(url=f"{FRONTEND_BASE_URL}{callback_path}?{query}", status_code=302)
 
@@ -267,8 +267,8 @@ async def login_google_callback(
 @router.get("/auth/google/callback")
 @router.get("/auth/callback")
 async def login_google_callback_get():
-    query = urlencode({"error": "Invalid callback method. Please start Google login from the app."})
-    return RedirectResponse(url=f"{FRONTEND_BASE_URL}/auth/callback?{query}", status_code=302)
+    query = urlencode({"source": "google", "error": "Invalid callback method. Please start Google login from the app."})
+    return RedirectResponse(url=f"{FRONTEND_BASE_URL}/?{query}", status_code=302)
 
 
 @router.get("/auth/me", response_model=AuthUserResponse)
