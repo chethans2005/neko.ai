@@ -13,6 +13,7 @@ function AuthModal({
   onToggleAuthMode,
   onResendOtp,
   onGoogleAuth,
+  showGoogleAuth = true,
 }) {
   if (!show) return null
 
@@ -120,7 +121,7 @@ function AuthModal({
                   : 'Login'}
             </button>
 
-            {!isSignupOtpStep && (
+            {!isSignupOtpStep && showGoogleAuth && (
               <button className="btn btn-secondary google-btn" onClick={onGoogleAuth} disabled={isAuthLoading} title="Continue with Google">
               <svg viewBox="0 0 24 24" width="16" height="16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                 <path d="M21.35 12.23c0-.79-.07-1.55-.21-2.27H12v4.3h5.23a4.47 4.47 0 0 1-1.94 2.94v2.44h3.14c1.84-1.7 2.92-4.2 2.92-7.41z" fill="#4285F4"/>

@@ -18,7 +18,6 @@ import {
   signupStart,
   signupVerify,
   login,
-  loginWithGoogle,
   getMe,
   getAIStatus,
   getHistory,
@@ -29,6 +28,17 @@ import {
 } from './api';
 
 function App() {
+  const configuredGoogleLoginUri = import.meta.env.VITE_GOOGLE_LOGIN_URI?.trim();
+  const apiBaseForGoogle = import.meta.env.VITE_API_BASE_URL?.trim();
+  const derivedGoogleLoginUri = apiBaseForGoogle?.startsWith('http')
+    ? `${apiBaseForGoogle.replace(/\/+$/, '')}/auth/google/callback`
+    : null;
+  const googleLoginUri = configuredGoogleLoginUri || derivedGoogleLoginUri;
+  const googleAuthEnabled =
+    import.meta.env.VITE_ENABLE_GOOGLE_AUTH?.toLowerCase() !== 'false' &&
+    Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim()) &&
+    Boolean(googleLoginUri)
+
   // Session state
   const [sessionId, setSessionId] = useState(null);
   const [topic, setTopic] = useState('');
@@ -117,7 +127,50 @@ function App() {
   }, [loadHistory]);
 
   useEffect(() => {
+    const completeGoogleRedirectAuth = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const tokenFromRedirect = params.get('auth_token');
+      const authErrorFromRedirect = params.get('error');
+
+      if (window.location.pathname !== '/auth/callback') {
+        return false;
+      }
+
+      if (authErrorFromRedirect) {
+        showMessage('error', decodeURIComponent(authErrorFromRedirect));
+        window.history.replaceState({}, '', '/');
+        return true;
+      }
+
+      if (!tokenFromRedirect) {
+        showMessage('error', 'Google redirect login did not return an auth token.');
+        window.history.replaceState({}, '', '/');
+        return true;
+      }
+
+      try {
+        setAuthToken(tokenFromRedirect);
+        const me = await getMe();
+        setUser(me);
+        await loadHistory();
+        showMessage('success', 'Google login successful');
+      } catch {
+        setAuthToken(null);
+        setUser(null);
+        showMessage('error', 'Google login failed while finalizing your session.');
+      } finally {
+        window.history.replaceState({}, '', '/');
+      }
+
+      return true;
+    };
+
     const restore = async () => {
+      const handledGoogleRedirect = await completeGoogleRedirectAuth();
+      if (handledGoogleRedirect) {
+        return;
+      }
+
       const storedToken = localStorage.getItem('auth_token');
       if (!storedToken) {
         setUser(null);
@@ -135,7 +188,7 @@ function App() {
     };
 
     restore();
-  }, [loadHistory]);
+  }, [loadHistory, showMessage]);
 
   useEffect(() => {
     const loadProviderStatus = async () => {
@@ -304,9 +357,14 @@ function App() {
 
   const handleGoogleAuth = async () => {
     try {
+      if (!googleAuthEnabled) {
+        showMessage('error', 'Google login is disabled or not fully configured. Use email signup/login.');
+        return;
+      }
+
       const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-      if (!googleClientId) {
-        showMessage('error', 'Google login is not configured. Set VITE_GOOGLE_CLIENT_ID.');
+      if (!googleClientId || !googleLoginUri) {
+        showMessage('error', 'Google login is not configured. Set VITE_GOOGLE_CLIENT_ID and VITE_GOOGLE_LOGIN_URI.');
         return;
       }
       if (!window.google?.accounts?.id) {
@@ -316,22 +374,33 @@ function App() {
 
       window.google.accounts.id.initialize({
         client_id: googleClientId,
-        callback: async (resp) => {
-          try {
-            const authResponse = await loginWithGoogle(resp.credential);
-            await finishAuth(authResponse);
-            showMessage('success', 'Google login successful');
-          } catch (err) {
-            showMessage('error', err.response?.data?.detail || err.message || 'Google login failed');
-          }
-        },
+        ux_mode: 'redirect',
+        login_uri: googleLoginUri,
       });
 
-      window.google.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed?.() || notification.isSkippedMoment?.()) {
-          showMessage('error', 'Google prompt was blocked or unavailable. Please allow popups/third-party cookies and try again.');
-        }
+      // Render + click a temporary Google button to trigger GIS redirect UX reliably.
+      const holder = document.createElement('div');
+      holder.style.position = 'fixed';
+      holder.style.left = '-9999px';
+      holder.style.top = '-9999px';
+      document.body.appendChild(holder);
+
+      window.google.accounts.id.renderButton(holder, {
+        type: 'standard',
+        size: 'large',
+        theme: 'outline',
+        text: 'continue_with',
       });
+
+      const googleButton = holder.querySelector('div[role="button"], iframe');
+      if (!googleButton) {
+        holder.remove();
+        showMessage('error', 'Unable to start Google redirect login.');
+        return;
+      }
+
+      googleButton.click();
+      window.setTimeout(() => holder.remove(), 2000);
     } catch (err) {
       showMessage('error', err.message || 'Unable to start Google login');
     }
@@ -548,6 +617,7 @@ function App() {
         onToggleAuthMode={handleToggleAuthMode}
         onResendOtp={handleResendOtp}
         onGoogleAuth={handleGoogleAuth}
+        showGoogleAuth={googleAuthEnabled}
       />
 
       <AppHeader

@@ -3,13 +3,14 @@ API Routes - FastAPI Route Definitions
 
 All API endpoints for the AI Presentation Generator.
 """
-from fastapi import APIRouter, HTTPException, Header
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import APIRouter, HTTPException, Header, Form
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from typing import Optional
 import os
 import hmac
 from datetime import datetime
 import shutil
+from urllib.parse import urlencode
 
 from app.models.schemas import (
     StartSessionRequest, GenerateRequest, UpdateSlideRequest, RollbackSlideRequest,
@@ -54,6 +55,7 @@ from db import crud
 
 router = APIRouter()
 SLIDES_GENERATION_LIMIT = 50
+FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://127.0.0.1:5173").rstrip("/")
 
 
 # =============================================================================
@@ -194,9 +196,23 @@ async def login(request: LoginRequest):
 @router.post("/auth/google", response_model=AuthResponse)
 async def login_google(request: GoogleLoginRequest):
     try:
-        email, name, sub, picture = await verify_google_id_token(request.id_token)
+        token, user = await authenticate_google_user(request.id_token)
+        return AuthResponse(
+            access_token=token,
+            user=AuthUserResponse(
+                user_id=user.user_id,
+                name=user.name,
+                email=user.email,
+                avatar_url=user.avatar_url,
+                requests_generated=user.requests_generated,
+            ),
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+async def authenticate_google_user(google_id_token: str):
+    email, name, sub, picture = await verify_google_id_token(google_id_token)
 
     db = await get_db_session()
     try:
@@ -225,18 +241,26 @@ async def login_google(request: GoogleLoginRequest):
 
         await crud.update_user_login(db, user)
         token = create_access_token(user.user_id, user.email, user.name)
-        return AuthResponse(
-            access_token=token,
-            user=AuthUserResponse(
-                user_id=user.user_id,
-                name=user.name,
-                email=user.email,
-                avatar_url=user.avatar_url,
-                requests_generated=user.requests_generated,
-            ),
-        )
+        return token, user
     finally:
         await db.close()
+
+
+@router.post("/auth/google/callback")
+async def login_google_callback(
+    credential: str = Form(...),
+    g_csrf_token: Optional[str] = Form(default=None),
+):
+    del g_csrf_token
+
+    callback_path = "/auth/callback"
+    try:
+        token, _user = await authenticate_google_user(credential)
+        query = urlencode({"auth_token": token})
+    except Exception as exc:
+        query = urlencode({"error": str(exc) or "Google login failed"})
+
+    return RedirectResponse(url=f"{FRONTEND_BASE_URL}{callback_path}?{query}", status_code=302)
 
 
 @router.get("/auth/me", response_model=AuthUserResponse)

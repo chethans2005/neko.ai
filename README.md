@@ -56,6 +56,7 @@ GEMINI_API_KEY=...
 
 AUTH_SECRET=...
 GOOGLE_CLIENT_ID=...
+FRONTEND_BASE_URL=http://127.0.0.1:5173
 
 # OTP + email verification
 OTP_SECRET=...
@@ -111,8 +112,18 @@ Create `frontend/.env` (or use `.env.example`):
 
 ```env
 VITE_GOOGLE_CLIENT_ID=...
+VITE_ENABLE_GOOGLE_AUTH=true
+VITE_GOOGLE_LOGIN_URI=http://127.0.0.1:8000/api/auth/google/callback
 VITE_API_BASE_URL=http://127.0.0.1:8000/api
 ```
+
+To run without Google auth (recommended if third-party cookies are blocked), set:
+
+```env
+VITE_ENABLE_GOOGLE_AUTH=false
+```
+
+Then use email signup/login + OTP flow.
 
 Run frontend:
 
@@ -141,6 +152,13 @@ In Google Cloud OAuth settings, add exact origins used in dev:
 - `http://localhost:5173` (if you also use localhost)
 
 Origin mismatch is strict.
+
+For redirect-based GIS auth, also register callback URIs that match your `VITE_GOOGLE_LOGIN_URI`:
+
+- `http://127.0.0.1:8000/api/auth/google/callback`
+- `http://localhost:8000/api/auth/google/callback` (if you use localhost)
+
+Google login now uses redirect flow (`ux_mode: redirect`) instead of popup/One Tap prompt.
 
 ## API Access
 
@@ -203,6 +221,7 @@ This prints `PERF_CHECK_RESULTS` with API timings, DB timings, and render cache 
 
 - Allow popups and third-party cookies
 - Check exact OAuth origin registration
+- For local/dev usage, disable Google auth with `VITE_ENABLE_GOOGLE_AUTH=false` and use email/OTP
 
 ### Provider unavailable
 
