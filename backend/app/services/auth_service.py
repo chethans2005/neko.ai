@@ -23,6 +23,7 @@ from app.services.disposable_domains import DISPOSABLE_EMAIL_DOMAINS
 AUTH_SECRET = os.getenv("AUTH_SECRET", "dev-secret-change-me")
 AUTH_TOKEN_TTL_SECONDS = int(os.getenv("AUTH_TOKEN_TTL_SECONDS", str(60 * 60 * 24 * 7)))
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_TOKEN_CLOCK_SKEW_SECONDS = int(os.getenv("GOOGLE_TOKEN_CLOCK_SKEW_SECONDS", "15"))
 OTP_SECRET = os.getenv("OTP_SECRET", AUTH_SECRET)
 OTP_LENGTH = int(os.getenv("OTP_LENGTH", "6"))
 OTP_TTL_SECONDS = int(os.getenv("OTP_TTL_SECONDS", "600"))
@@ -153,7 +154,21 @@ async def verify_google_id_token(google_id_token: str) -> Tuple[str, str, str, O
     if not GOOGLE_CLIENT_ID:
         raise ValueError("GOOGLE_CLIENT_ID is not configured on backend")
 
-    idinfo = id_token.verify_oauth2_token(google_id_token, requests.Request(), GOOGLE_CLIENT_ID)
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            google_id_token,
+            requests.Request(),
+            GOOGLE_CLIENT_ID,
+            clock_skew_in_seconds=max(0, GOOGLE_TOKEN_CLOCK_SKEW_SECONDS),
+        )
+    except ValueError as exc:
+        message = str(exc)
+        if "Token used too early" in message:
+            raise ValueError(
+                "Google token validation failed due to clock skew. Please check server time sync and retry."
+            ) from exc
+        raise
+
     email = idinfo.get("email")
     name = idinfo.get("name") or (email.split("@")[0] if email else "Google User")
     sub = idinfo.get("sub")

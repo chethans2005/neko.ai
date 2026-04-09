@@ -8,9 +8,12 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from typing import Optional
 import os
 import hmac
+import base64
+import binascii
+import json
 from datetime import datetime
 import shutil
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 from app.models.schemas import (
     StartSessionRequest, GenerateRequest, UpdateSlideRequest, RollbackSlideRequest,
@@ -56,6 +59,62 @@ from db import crud
 router = APIRouter()
 SLIDES_GENERATION_LIMIT = 50
 FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://127.0.0.1:5173").rstrip("/")
+
+
+def _extract_origin(url: Optional[str]) -> Optional[str]:
+    if not url:
+        return None
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return None
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return None
+    return f"{parsed.scheme}://{parsed.netloc}".lower()
+
+
+def _build_allowed_frontend_origins() -> set[str]:
+    origins: set[str] = set()
+    candidates = [FRONTEND_BASE_URL]
+    cors_origins_raw = os.getenv("CORS_ORIGINS", "")
+    if cors_origins_raw:
+        candidates.extend(item.strip() for item in cors_origins_raw.split(","))
+
+    for candidate in candidates:
+        origin = _extract_origin(candidate)
+        if origin:
+            origins.add(origin)
+    return origins
+
+
+ALLOWED_FRONTEND_ORIGINS = _build_allowed_frontend_origins()
+
+
+def _decode_google_state(state: Optional[str]) -> dict:
+    if not state:
+        return {}
+    try:
+        padding = "=" * ((4 - (len(state) % 4)) % 4)
+        raw = base64.urlsafe_b64decode(f"{state}{padding}")
+        payload = json.loads(raw.decode("utf-8"))
+        return payload if isinstance(payload, dict) else {}
+    except (ValueError, TypeError, binascii.Error, json.JSONDecodeError):
+        return {}
+
+
+def _resolve_frontend_redirect_base(state: Optional[str]) -> str:
+    payload = _decode_google_state(state)
+    return_to = payload.get("return_to")
+    if not isinstance(return_to, str):
+        return f"{FRONTEND_BASE_URL}/"
+
+    origin = _extract_origin(return_to)
+    if not origin or origin not in ALLOWED_FRONTEND_ORIGINS:
+        return f"{FRONTEND_BASE_URL}/"
+
+    parsed = urlparse(return_to)
+    path = parsed.path or "/"
+    return f"{origin}{path}"
 
 
 # =============================================================================
@@ -251,24 +310,26 @@ async def authenticate_google_user(google_id_token: str):
 async def login_google_callback(
     credential: str = Form(...),
     g_csrf_token: Optional[str] = Form(default=None),
+    state: Optional[str] = Form(default=None),
 ):
     del g_csrf_token
 
-    callback_path = "/"
+    redirect_base = _resolve_frontend_redirect_base(state)
     try:
         token, _user = await authenticate_google_user(credential)
         query = urlencode({"source": "google", "auth_token": token})
     except Exception as exc:
         query = urlencode({"source": "google", "error": str(exc) or "Google login failed"})
 
-    return RedirectResponse(url=f"{FRONTEND_BASE_URL}{callback_path}?{query}", status_code=302)
+    return RedirectResponse(url=f"{redirect_base}?{query}", status_code=302)
 
 
 @router.get("/auth/google/callback")
 @router.get("/auth/callback")
-async def login_google_callback_get():
+async def login_google_callback_get(state: Optional[str] = None):
+    redirect_base = _resolve_frontend_redirect_base(state)
     query = urlencode({"source": "google", "error": "Invalid callback method. Please start Google login from the app."})
-    return RedirectResponse(url=f"{FRONTEND_BASE_URL}/?{query}", status_code=302)
+    return RedirectResponse(url=f"{redirect_base}?{query}", status_code=302)
 
 
 @router.get("/auth/me", response_model=AuthUserResponse)

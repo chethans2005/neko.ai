@@ -18,6 +18,7 @@ import {
   signupStart,
   signupVerify,
   login,
+  loginWithGoogle,
   getMe,
   getAIStatus,
   getHistory,
@@ -75,6 +76,18 @@ function App() {
   const [pendingDeleteHistoryId, setPendingDeleteHistoryId] = useState(null);
   const [modelTagText, setModelTagText] = useState('Model: Groq → Gemini fallback');
   const profileWrapRef = useRef(null);
+
+  const buildGoogleReturnUrl = useCallback(() => {
+    return `${window.location.origin}${window.location.pathname}`;
+  }, []);
+
+  const buildGoogleRedirectState = useCallback(() => {
+    const payload = {
+      return_to: buildGoogleReturnUrl(),
+      ts: Date.now(),
+    };
+    return btoa(JSON.stringify(payload));
+  }, [buildGoogleReturnUrl]);
 
   // Clear messages after timeout
   const showMessage = useCallback((type, message) => {
@@ -357,13 +370,13 @@ function App() {
   };
 
   const handleGoogleAuth = async () => {
+    const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
     try {
       if (!googleAuthEnabled) {
         showMessage('error', 'Google login is disabled or not fully configured. Use email signup/login.');
         return;
       }
 
-      const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
       if (!googleClientId || !googleLoginUri) {
         showMessage('error', 'Google login is not configured. Set VITE_GOOGLE_CLIENT_ID and VITE_GOOGLE_LOGIN_URI.');
         return;
@@ -373,37 +386,90 @@ function App() {
         return;
       }
 
-      window.google.accounts.id.initialize({
-        client_id: googleClientId,
-        ux_mode: 'redirect',
-        login_uri: googleLoginUri,
+      const authResponse = await new Promise((resolve, reject) => {
+        let settled = false;
+        const finish = (handler, value) => {
+          if (settled) return;
+          settled = true;
+          handler(value);
+        };
+
+        window.google.accounts.id.initialize({
+          client_id: googleClientId,
+          ux_mode: 'popup',
+          callback: (response) => {
+            if (!response?.credential) {
+              finish(reject, new Error('Google did not return a credential.'));
+              return;
+            }
+            finish(resolve, response.credential);
+          },
+          error_callback: (error) => {
+            const reason = error?.type || 'unknown';
+            finish(reject, new Error(reason));
+          },
+        });
+
+        try {
+          window.google.accounts.id.prompt();
+        } catch {
+          finish(reject, new Error('prompt_failed'));
+        }
+
+        window.setTimeout(() => {
+          finish(reject, new Error('popup_timeout'));
+        }, 12000);
       });
 
-      // Render + click a temporary Google button to trigger GIS redirect UX reliably.
-      const holder = document.createElement('div');
-      holder.style.position = 'fixed';
-      holder.style.left = '-9999px';
-      holder.style.top = '-9999px';
-      document.body.appendChild(holder);
+      const response = await loginWithGoogle(authResponse);
+      await finishAuth(response);
+      setAuthError('');
+      showMessage('success', 'Google login successful');
+    } catch (err) {
+      const message = err?.message || 'Unable to start Google login';
+      const isPopupIssue = message === 'popup_failed_to_open' || message === 'popup_timeout' || message === 'prompt_failed';
+      const isCancel = message === 'popup_closed';
 
-      window.google.accounts.id.renderButton(holder, {
-        type: 'standard',
-        size: 'large',
-        theme: 'outline',
-        text: 'continue_with',
-      });
-
-      const googleButton = holder.querySelector('div[role="button"], iframe');
-      if (!googleButton) {
-        holder.remove();
-        showMessage('error', 'Unable to start Google redirect login.');
+      if (isCancel) {
+        showMessage('error', 'Google login was canceled.');
         return;
       }
 
-      googleButton.click();
-      window.setTimeout(() => holder.remove(), 2000);
-    } catch (err) {
-      showMessage('error', err.message || 'Unable to start Google login');
+      if (isPopupIssue) {
+        window.google.accounts.id.initialize({
+          client_id: googleClientId,
+          ux_mode: 'redirect',
+          login_uri: googleLoginUri,
+        });
+
+        // Redirect fallback for strict popup blockers and embedded browsers.
+        const holder = document.createElement('div');
+        holder.style.position = 'fixed';
+        holder.style.left = '-9999px';
+        holder.style.top = '-9999px';
+        document.body.appendChild(holder);
+
+        window.google.accounts.id.renderButton(holder, {
+          type: 'standard',
+          size: 'large',
+          theme: 'outline',
+          text: 'continue_with',
+          state: buildGoogleRedirectState(),
+        });
+
+        const googleButton = holder.querySelector('div[role="button"], iframe');
+        if (!googleButton) {
+          holder.remove();
+          showMessage('error', 'Unable to start Google login.');
+          return;
+        }
+
+        googleButton.click();
+        window.setTimeout(() => holder.remove(), 2000);
+        return;
+      }
+
+      showMessage('error', message);
     }
   };
 
