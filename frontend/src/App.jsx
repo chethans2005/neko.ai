@@ -371,6 +371,11 @@ function App() {
 
   const handleGoogleAuth = async () => {
     const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    // Lock UI while Google auth is in progress. If we trigger a redirect
+    // flow, we intentionally keep the lock active because the page will
+    // navigate away; only clear the lock for non-redirect flows.
+    setIsAuthLoading(true);
+    let willRedirect = false;
     try {
       if (!googleAuthEnabled) {
         showMessage('error', 'Google login is disabled or not fully configured. Use email signup/login.');
@@ -464,12 +469,16 @@ function App() {
           return;
         }
 
+        // We will redirect the browser — keep the auth lock active.
+        willRedirect = true;
         googleButton.click();
         window.setTimeout(() => holder.remove(), 2000);
         return;
       }
 
       showMessage('error', message);
+    } finally {
+      if (!willRedirect) setIsAuthLoading(false);
     }
   };
 
